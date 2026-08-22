@@ -7,13 +7,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 
 // ==========================================
-// 1. الإعدادات والتهيئات العامة والتأسيس
+// 1. نقطة الدخول وتهيئة التطبيق (main)
 // ==========================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
 
-  // تهيئة Supabase مع المعالجة اللطيفة للعمل أوفلاين/أونلاين
   try {
     await Supabase.initialize(
       url: 'https://syria-market-2028.supabase.co',
@@ -234,7 +233,7 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
       debugShowCheckedModeBanner: false,
       locale: const Locale('ar', 'SY'),
       supportedLocales: const [Locale('ar', 'SY'), Locale('ar', '')],
-      localizationsDelegates: const [
+      localizationsDelegates: [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
@@ -387,10 +386,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   bool _isLoadingAds = false;
 
 
-  String _currentUserEmail = 'aoaadabdo@gmail.com';
-  String _currentUserName = 'عبدو عواد (Super Admin)';
-  String _currentUserPhone = '0944112233';
-  String _currentUserPlan = 'ذهبية VIP';
+  final String _currentUserEmail = 'aoaadabdo@gmail.com';
+  final String _currentUserName = 'عبدو عواد (Super Admin)';
+  final String _currentUserPhone = '0944112233';
+  final String _currentUserPlan = 'ذهبية VIP';
 
 
   @override
@@ -908,7 +907,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedCornerShape(14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       clipBehavior: Clip.antiAlias,
       elevation: 2,
       child: InkWell(
@@ -1405,8 +1404,8 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
   String _selectedGovernorate = 'دمشق';
   String _selectedCategory = '🚗 سيارات ومركبات';
   String _selectedSubcategory = 'سيارات سياحية';
-  String _condition = 'جديد';
-  bool _allowComments = true;
+  final String _condition = 'جديد';
+  final bool _allowComments = true;
   bool _isSubmitting = false;
 
 
@@ -1518,7 +1517,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                 controller: _titleController,
                 decoration: InputDecoration(
                   labelText: 'عنوان الإعلان (ماذا تبيع؟) *',
-                  prefixIcon: Icon(Icons.title, color: green),
+                  prefixIcon: const Icon(Icons.title, color: green),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى كتابة عنوان الإعلان' : null,
@@ -1532,7 +1531,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText: 'السعر بالدولار (\$)',
-                        prefixIcon: Icon(Icons.attach_money, color: green),
+                        prefixIcon: const Icon(Icons.attach_money, color: green),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
@@ -1648,11 +1647,11 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                       child: Container(
                         width: 90,
                         decoration: BoxDecoration(color: green.withOpacity(0.08), borderRadius: BorderRadius.circular(10), border: Border.all(color: green)),
-                        child: Column(
+                        child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.photo_library, color: green, size: 28),
-                            const SizedBox(height: 4),
+                            SizedBox(height: 4),
                             Text('من المعرض 🖼️', style: TextStyle(color: green, fontSize: 10, fontWeight: FontWeight.bold)),
                           ],
                         ),
@@ -1672,7 +1671,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
                   labelText: 'رقم الهاتف للتواصل والواتساب',
-                  prefixIcon: Icon(Icons.phone, color: green),
+                  prefixIcon: const Icon(Icons.phone, color: green),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
@@ -1873,8 +1872,8 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: gold),
                         onPressed: _openNegotiateDialog,
-                        icon: Icon(Icons.handshake, color: green, size: 18),
-                        label: Text('تفاوض على السعر 🤝', style: TextStyle(color: green, fontWeight: FontWeight.bold, fontSize: 12)),
+                        icon: const Icon(Icons.handshake, color: green, size: 18),
+                        label: const Text('تفاوض على السعر 🤝', style: TextStyle(color: green, fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                     ],
                   ),
