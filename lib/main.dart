@@ -1,17 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 
 // ==========================================
 // 1. نقطة الدخول وتهيئة التطبيق (main)
 // ==========================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
 
   try {
     await Supabase.initialize(
@@ -22,10 +19,8 @@ void main() async {
     debugPrint('Supabase Init notice: $e');
   }
 
-
   runApp(const SyriaMarket2028App());
 }
-
 
 // ==========================================
 // 2. النماذج وهياكل البيانات (Models)
@@ -52,7 +47,6 @@ class AdItem {
   final bool allowComments;
   final DateTime createdAt;
 
-
   AdItem({
     required this.id,
     required this.userId,
@@ -75,7 +69,6 @@ class AdItem {
     this.allowComments = true,
     required this.createdAt,
   });
-
 
   AdItem copyWith({
     String? id,
@@ -123,7 +116,6 @@ class AdItem {
     );
   }
 
-
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -148,7 +140,6 @@ class AdItem {
       'created_at': createdAt.toIso8601String(),
     };
   }
-
 
   factory AdItem.fromMap(Map<String, dynamic> map) {
     return AdItem(
@@ -176,7 +167,6 @@ class AdItem {
   }
 }
 
-
 class ChatMessage {
   final String id;
   final String senderName;
@@ -185,7 +175,6 @@ class ChatMessage {
   final DateTime timestamp;
   final bool isMe;
   final double? offerAmount;
-
 
   ChatMessage({
     required this.id,
@@ -198,22 +187,18 @@ class ChatMessage {
   });
 }
 
-
 // ==========================================
 // 3. التطبيق الرئيسي والثيمات (Material 3)
 // ==========================================
 class SyriaMarket2028App extends StatefulWidget {
   const SyriaMarket2028App({Key? key}) : super(key: key);
 
-
   @override
   State<SyriaMarket2028App> createState() => _SyriaMarket2028AppState();
 }
 
-
 class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
   bool _isDarkMode = false;
-
 
   void _toggleTheme() {
     setState(() {
@@ -221,23 +206,20 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
     const Color syriaGreen = Color(0xFF0F5132);
     const Color syriaGold = Color(0xFFD4AF37);
 
-
     return MaterialApp(
       title: 'سوق سوريا الشامل 2028',
       debugShowCheckedModeBanner: false,
-      locale: const Locale('ar', 'SY'),
-      supportedLocales: const [Locale('ar', 'SY'), Locale('ar', '')],
-      localizationsDelegates: [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: child ?? const SizedBox(),
+        );
+      },
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Cairo',
@@ -283,7 +265,6 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
   }
 }
 
-
 // ==========================================
 // 4. الشاشة الرئيسية الكبرى والملاحة (Dashboard)
 // ==========================================
@@ -291,30 +272,25 @@ class MainDashboardScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
 
-
   const MainDashboardScreen({
     Key? key,
     required this.isDarkMode,
     required this.onToggleTheme,
   }) : super(key: key);
 
-
   @override
   State<MainDashboardScreen> createState() => _MainDashboardScreenState();
 }
 
-
 class _MainDashboardScreenState extends State<MainDashboardScreen> {
   final SupabaseClient _supabase = Supabase.instance.client;
   int _currentNavIndex = 0;
-
 
   final List<String> _governorates = [
     'كل المحافظات', 'دمشق', 'ريف دمشق', 'حلب', 'حمص', 'حماة',
     'اللاذقية', 'طرطوس', 'إدلب', 'درعا', 'السويداء', 'القنيطرة',
     'دير الزور', 'الرقة', 'الحسكة'
   ];
-
 
   final Map<String, List<String>> _categoriesMap = {
     'الكل': [],
@@ -326,12 +302,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     '💼 وظائف وخدمات': ['الكل', 'فرص عمل وشواغر', 'خدمات صيانة ومنزلية', 'شحن ونقل بضائع', 'دروس وتعليم'],
   };
 
-
   String _selectedGovernorate = 'كل المحافظات';
   String? _selectedCategory;
   String? _selectedSubcategory;
   String _searchQuery = '';
-
 
   List<String> _newsTickerList = [
     '🔥 مرحباً بكم في سوق سوريا الشامل 2028 - المنصة الرائدة للبيع والشراء والمزادات الحرة',
@@ -342,12 +316,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   int _currentNewsIndex = 0;
   Timer? _newsTimer;
 
-
   int _currentBannerPage = 0;
   Timer? _bannerTimer;
   final PageController _leftBannerController = PageController();
   final PageController _rightBannerController = PageController();
-
 
   final List<Map<String, String>> _leftBanners = [
     {
@@ -364,7 +336,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     }
   ];
 
-
   final List<Map<String, String>> _rightBanners = [
     {
       'title': 'تطبيق سوق سوريا 2028',
@@ -380,17 +351,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     }
   ];
 
-
   List<AdItem> _adsList = [];
   final Set<String> _favoriteAdIds = {};
   bool _isLoadingAds = false;
-
 
   final String _currentUserEmail = 'aoaadabdo@gmail.com';
   final String _currentUserName = 'عبدو عواد (Super Admin)';
   final String _currentUserPhone = '0944112233';
   final String _currentUserPlan = 'ذهبية VIP';
-
 
   @override
   void initState() {
@@ -400,7 +368,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     _startTimers();
   }
 
-
   void _startTimers() {
     _newsTimer = Timer.periodic(const Duration(seconds: 4), (t) {
       if (mounted && _newsTickerList.isNotEmpty) {
@@ -409,7 +376,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         });
       }
     });
-
 
     _bannerTimer = Timer.periodic(const Duration(seconds: 5), (t) {
       if (mounted) {
@@ -423,7 +389,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       }
     });
   }
-
 
   void _initSampleAds() {
     _adsList = [
@@ -490,7 +455,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     ];
   }
 
-
   Future<void> _fetchSupabaseAds() async {
     setState(() => _isLoadingAds = true);
     try {
@@ -507,7 +471,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     }
   }
 
-
   @override
   void dispose() {
     _newsTimer?.cancel();
@@ -517,109 +480,103 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     const Color syriaGreen = Color(0xFF0F5132);
     const Color syriaGold = Color(0xFFD4AF37);
 
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        drawer: _buildAppDrawer(context, syriaGreen, syriaGold),
-        appBar: AppBar(
-          backgroundColor: syriaGreen,
-          elevation: 2,
-          leading: Builder(
-            builder: (ctx) => IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
-              onPressed: () => Scaffold.of(ctx).openDrawer(),
-            ),
+    return Scaffold(
+      drawer: _buildAppDrawer(context, syriaGreen, syriaGold),
+      appBar: AppBar(
+        backgroundColor: syriaGreen,
+        elevation: 2,
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
           ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(color: syriaGold, shape: BoxShape.circle),
-                child: const Icon(Icons.storefront, color: syriaGreen, size: 20),
-              ),
-              const SizedBox(width: 8),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('سوق سوريا', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text('الشامل 2028', style: TextStyle(color: syriaGold, fontSize: 11, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedGovernorate,
-                dropdownColor: const Color(0xFF1E293B),
-                icon: const Icon(Icons.arrow_drop_down, color: syriaGold),
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                items: _governorates.map((gov) {
-                  return DropdownMenuItem<String>(
-                    value: gov,
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on, color: syriaGold, size: 14),
-                        const SizedBox(width: 4),
-                        Text(gov, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedGovernorate = val);
-                },
-              ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(color: syriaGold, shape: BoxShape.circle),
+              child: const Icon(Icons.storefront, color: syriaGreen, size: 20),
             ),
-            IconButton(
-              icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode, color: Colors.white),
-              onPressed: widget.onToggleTheme,
-            ),
-            IconButton(
-              icon: const Icon(Icons.notifications_active, color: syriaGold),
-              onPressed: () => _showNotificationDialog(context, syriaGreen),
+            const SizedBox(width: 8),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('سوق سوريا', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('الشامل 2028', style: TextStyle(color: syriaGold, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
             ),
           ],
         ),
-        body: _buildCurrentScreenBody(syriaGreen, syriaGold),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentNavIndex,
-          selectedItemColor: syriaGreen,
-          unselectedItemColor: Colors.grey,
-          type: BottomNavigationBarType.fixed,
-          onTap: (index) {
-            if (index == 2) {
-              _openAddAdScreen();
-            } else {
-              setState(() => _currentNavIndex = index);
-            }
-          },
-          items: [
-            const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
-            const BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'الرسائل والصفقات'),
-            BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(color: syriaGreen, shape: BoxShape.circle),
-                child: const Icon(Icons.add, color: syriaGold, size: 24),
-              ),
-              label: 'أضف إعلان',
+        actions: [
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedGovernorate,
+              dropdownColor: const Color(0xFF1E293B),
+              icon: const Icon(Icons.arrow_drop_down, color: syriaGold),
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              items: _governorates.map((gov) {
+                return DropdownMenuItem<String>(
+                  value: gov,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on, color: syriaGold, size: 14),
+                      const SizedBox(width: 4),
+                      Text(gov, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedGovernorate = val);
+              },
             ),
-            const BottomNavigationBarItem(icon: Icon(Icons.favorite_border), label: 'المفضلة'),
-            const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'حسابي'),
-          ],
-        ),
+          ),
+          IconButton(
+            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode, color: Colors.white),
+            onPressed: widget.onToggleTheme,
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_active, color: syriaGold),
+            onPressed: () => _showNotificationDialog(context, syriaGreen),
+          ),
+        ],
+      ),
+      body: _buildCurrentScreenBody(syriaGreen, syriaGold),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentNavIndex,
+        selectedItemColor: syriaGreen,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) {
+          if (index == 2) {
+            _openAddAdScreen();
+          } else {
+            setState(() => _currentNavIndex = index);
+          }
+        },
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
+          const BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'الرسائل والصفقات'),
+          BottomNavigationBarItem(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(color: syriaGreen, shape: BoxShape.circle),
+              child: const Icon(Icons.add, color: syriaGold, size: 24),
+            ),
+            label: 'أضف إعلان',
+          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.favorite_border), label: 'المفضلة'),
+          const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'حسابي'),
+        ],
       ),
     );
   }
-
 
   Widget _buildCurrentScreenBody(Color green, Color gold) {
     switch (_currentNavIndex) {
@@ -636,7 +593,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     }
   }
 
-
   // -------------------------------------------------------------
   // تبويب 1: الرئيسية وتغذية الإعلانات والبنرات والشريط العاجل
   // -------------------------------------------------------------
@@ -650,10 +606,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           ad.description.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           ad.neighborhood.toLowerCase().contains(_searchQuery.toLowerCase());
 
-
       return matchesGov && matchesCat && matchesSub && matchesSearch;
     }).toList();
-
 
     return RefreshIndicator(
       onRefresh: _fetchSupabaseAds,
@@ -728,7 +682,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   Widget _buildNewsTickerWidget(Color green, Color gold) {
     return Container(
       color: const Color(0xFF0F172A),
@@ -763,7 +716,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       ),
     );
   }
-
 
   Widget _buildDualBannersWidget(Color green, Color gold) {
     return Padding(
@@ -833,12 +785,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   Widget _buildCategoriesHorizontalBar(Color green, Color gold) {
     final subcategories = _selectedCategory != null && _categoriesMap[_selectedCategory] != null
         ? _categoriesMap[_selectedCategory]!
         : [];
-
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -900,10 +850,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   Widget _buildAdCard(BuildContext context, AdItem ad, Color green, Color gold) {
     final isFav = _favoriteAdIds.contains(ad.id);
-
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1045,7 +993,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   // -------------------------------------------------------------
   // تبويب 2: الرسائل والدردشات والتفاوض الحي
   // -------------------------------------------------------------
@@ -1081,7 +1028,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   Widget _buildChatListItem({
     required String name,
     required String lastMsg,
@@ -1116,13 +1062,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   // -------------------------------------------------------------
   // تبويب 3: المفضلة
   // -------------------------------------------------------------
   Widget _buildFavoritesTab(Color green, Color gold) {
     final favAds = _adsList.where((x) => _favoriteAdIds.contains(x.id)).toList();
-
 
     if (favAds.isEmpty) {
       return Center(
@@ -1139,7 +1083,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       );
     }
 
-
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -1155,7 +1098,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       ],
     );
   }
-
 
   // -------------------------------------------------------------
   // تبويب 4: حسابي والاشتراكات
@@ -1218,7 +1160,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   void _openAddAdScreen() {
     Navigator.push(
       context,
@@ -1241,7 +1182,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   void _openSubscriptionPlansScreen(BuildContext context, Color green, Color gold) {
     Navigator.push(
       context,
@@ -1250,7 +1190,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       ),
     );
   }
-
 
   void _openAdminControlPanel(BuildContext context, Color green, Color gold) {
     Navigator.push(
@@ -1268,7 +1207,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   void _openChatConversationScreen(BuildContext context, String partnerName, String productTitle, double price) {
     Navigator.push(
       context,
@@ -1281,7 +1219,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       ),
     );
   }
-
 
   Widget _buildAppDrawer(BuildContext context, Color green, Color gold) {
     return Drawer(
@@ -1331,7 +1268,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-
   void _showNotificationDialog(BuildContext context, Color green) {
     showDialog(
       context: context,
@@ -1360,7 +1296,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 }
 
-
 // =============================================================
 // 5. شاشة إضافة إعلان جديد مع اختيار الصور من المعرض
 // =============================================================
@@ -1371,7 +1306,6 @@ class FullAddAdScreen extends StatefulWidget {
   final String userPhone;
   final Function(AdItem) onAdCreated;
 
-
   const FullAddAdScreen({
     Key? key,
     required this.userPlan,
@@ -1381,16 +1315,13 @@ class FullAddAdScreen extends StatefulWidget {
     required this.onAdCreated,
   }) : super(key: key);
 
-
   @override
   State<FullAddAdScreen> createState() => _FullAddAdScreenState();
 }
 
-
 class _FullAddAdScreenState extends State<FullAddAdScreen> {
   final SupabaseClient _supabase = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
-
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
@@ -1400,7 +1331,6 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
   late TextEditingController _publisherNameController;
   late TextEditingController _publisherPhoneController;
 
-
   String _selectedGovernorate = 'دمشق';
   String _selectedCategory = '🚗 سيارات ومركبات';
   String _selectedSubcategory = 'سيارات سياحية';
@@ -1408,23 +1338,19 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
   final bool _allowComments = true;
   bool _isSubmitting = false;
 
-
   final List<String> _selectedImageUrls = [];
   final ImagePicker _picker = ImagePicker();
   final List<String> _selectedTags = [];
-
 
   final List<String> _quickTags = [
     '✨ بحالة ممتازة', '🔍 فحص كامل', '🤝 قابل للتفاوض',
     '🚀 جاهز للتسليم', '📜 طابو أخضر', '🔋 بطارية 100%', '💎 كرت أبيض'
   ];
 
-
   final List<String> _governorates = [
     'دمشق', 'ريف دمشق', 'حلب', 'حمص', 'حماة', 'اللاذقية',
     'طرطوس', 'إدلب', 'درعا', 'السويداء', 'القنيطرة', 'دير الزور', 'الرقة', 'الحسكة'
   ];
-
 
   final Map<String, List<String>> _categoriesMap = {
     '🚗 سيارات ومركبات': ['سيارات سياحية', 'دراجات نارية', 'شاحنات', 'قطع غيار واكسسوارات'],
@@ -1435,14 +1361,12 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
     '💼 وظائف وخدمات': ['فرص عمل وشواغر', 'خدمات صيانة ومنزلية', 'شحن ونقل بضائع', 'دروس وتعليم'],
   };
 
-
   @override
   void initState() {
     super.initState();
     _publisherNameController = TextEditingController(text: widget.userName);
     _publisherPhoneController = TextEditingController(text: widget.userPhone);
   }
-
 
   Future<void> _pickImageFromGallery() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -1453,11 +1377,9 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
     }
   }
 
-
   Future<void> _submitAd() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
-
 
     final newAd = AdItem(
       id: 'ad-${DateTime.now().millisecondsSinceEpoch}',
@@ -1481,219 +1403,211 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
       createdAt: DateTime.now(),
     );
 
-
     try {
       await _supabase.from('ads').insert(newAd.toMap());
     } catch (e) {
       debugPrint('Ad insert notice: $e');
     }
 
-
     widget.onAdCreated(newAd);
     if (mounted) Navigator.pop(context);
   }
-
 
   @override
   Widget build(BuildContext context) {
     const Color green = Color(0xFF0F5132);
     final subs = _categoriesMap[_selectedCategory] ?? ['عام'];
 
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: green,
-          title: const Text('نشر إعلان جديد في سوق سوريا', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-          leading: IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.white), onPressed: () => Navigator.pop(context)),
-        ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  labelText: 'عنوان الإعلان (ماذا تبيع؟) *',
-                  prefixIcon: const Icon(Icons.title, color: green),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: green,
+        title: const Text('نشر إعلان جديد في سوق سوريا', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.white), onPressed: () => Navigator.pop(context)),
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                labelText: 'عنوان الإعلان (ماذا تبيع؟) *',
+                prefixIcon: const Icon(Icons.title, color: green),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى كتابة عنوان الإعلان' : null,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _priceUsdController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'السعر بالدولار (\$)',
+                      prefixIcon: const Icon(Icons.attach_money, color: green),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى كتابة عنوان الإعلان' : null,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _priceUsdController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'السعر بالدولار (\$)',
-                        prefixIcon: const Icon(Icons.attach_money, color: green),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: _priceSypController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'السعر بالليرة السورية',
+                      suffixText: 'ل.س',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _priceSypController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'السعر بالليرة السورية',
-                        suffixText: 'ل.س',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedCategory,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: 'القسم الرئيسي', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-                      items: _categoriesMap.keys.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)))).toList(),
-                      onChanged: (v) {
-                        if (v != null) setState(() { _selectedCategory = v; _selectedSubcategory = _categoriesMap[v]!.first; });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: subs.contains(_selectedSubcategory) ? _selectedSubcategory : subs.first,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: 'القسم الفرعي', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-                      items: subs.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
-                      onChanged: (v) => setState(() => _selectedSubcategory = v!),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedGovernorate,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: 'المحافظة', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-                      items: _governorates.map((g) => DropdownMenuItem(value: g, child: Text(g, style: const TextStyle(fontSize: 12)))).toList(),
-                      onChanged: (v) => setState(() => _selectedGovernorate = v!),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _neighborhoodController,
-                      decoration: InputDecoration(labelText: 'الحي / المنطقة', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descController,
-                maxLength: 600,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: 'تفاصيل ووصف السلعة *',
-                  hintText: 'اكتب مواصفات السلعة بدقة والمميزات...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                validator: (v) => (v == null || v.trim().length < 5) ? 'الوصف مطلوب' : null,
-              ),
-              const SizedBox(height: 8),
-              const Text('وسوم سريعة تميز إعلانك:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                children: _quickTags.map((tag) {
-                  final sel = _selectedTags.contains(tag);
-                  return FilterChip(
-                    label: Text(tag, style: TextStyle(fontSize: 11, color: sel ? Colors.white : Colors.black87)),
-                    selected: sel,
-                    selectedColor: green,
-                    onSelected: (val) {
-                      setState(() {
-                        if (val) _selectedTags.add(tag); else _selectedTags.remove(tag);
-                      });
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedCategory,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: 'القسم الرئيسي', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                    items: _categoriesMap.keys.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)))).toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() { _selectedCategory = v; _selectedSubcategory = _categoriesMap[v]!.first; });
                     },
-                  );
-                }).toList(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: subs.contains(_selectedSubcategory) ? _selectedSubcategory : subs.first,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: 'القسم الفرعي', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                    items: subs.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                    onChanged: (v) => setState(() => _selectedSubcategory = v!),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedGovernorate,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: 'المحافظة', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                    items: _governorates.map((g) => DropdownMenuItem(value: g, child: Text(g, style: const TextStyle(fontSize: 12)))).toList(),
+                    onChanged: (v) => setState(() => _selectedGovernorate = v!),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: _neighborhoodController,
+                    decoration: InputDecoration(labelText: 'الحي / المنطقة', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _descController,
+              maxLength: 600,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: 'تفاصيل ووصف السلعة *',
+                hintText: 'اكتب مواصفات السلعة بدقة والمميزات...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              validator: (v) => (v == null || v.trim().length < 5) ? 'الوصف مطلوب' : null,
+            ),
+            const SizedBox(height: 8),
+            const Text('وسوم سريعة تميز إعلانك:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              children: _quickTags.map((tag) {
+                final sel = _selectedTags.contains(tag);
+                return FilterChip(
+                  label: Text(tag, style: TextStyle(fontSize: 11, color: sel ? Colors.white : Colors.black87)),
+                  selected: sel,
+                  selectedColor: green,
+                  onSelected: (val) {
+                    setState(() {
+                      if (val) _selectedTags.add(tag); else _selectedTags.remove(tag);
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('صور الإعلان (من المعرض):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text('${_selectedImageUrls.length} صور', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 85,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
                 children: [
-                  const Text('صور الإعلان (من المعرض):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  Text('${_selectedImageUrls.length} صور', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 85,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    InkWell(
-                      onTap: _pickImageFromGallery,
-                      child: Container(
-                        width: 90,
-                        decoration: BoxDecoration(color: green.withOpacity(0.08), borderRadius: BorderRadius.circular(10), border: Border.all(color: green)),
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.photo_library, color: green, size: 28),
-                            SizedBox(height: 4),
-                            Text('من المعرض 🖼️', style: TextStyle(color: green, fontSize: 10, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
+                  InkWell(
+                    onTap: _pickImageFromGallery,
+                    child: Container(
+                      width: 90,
+                      decoration: BoxDecoration(color: green.withOpacity(0.08), borderRadius: BorderRadius.circular(10), border: Border.all(color: green)),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.photo_library, color: green, size: 28),
+                          SizedBox(height: 4),
+                          Text('من المعرض 🖼️', style: TextStyle(color: green, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
                       ),
                     ),
-                    ..._selectedImageUrls.map((url) => Container(
-                      width: 85,
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)),
-                    )),
-                  ],
-                ),
+                  ),
+                  ..._selectedImageUrls.map((url) => Container(
+                    width: 85,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)),
+                  )),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _publisherPhoneController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: 'رقم الهاتف للتواصل والواتساب',
-                  prefixIcon: const Icon(Icons.phone, color: green),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _publisherPhoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: 'رقم الهاتف للتواصل والواتساب',
+                prefixIcon: const Icon(Icons.phone, color: green),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  onPressed: _isSubmitting ? null : _submitAd,
-                  child: _isSubmitting
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('نشر الإعلان الآن في سوق سوريا ✨', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: _isSubmitting ? null : _submitAd,
+                child: _isSubmitting
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('نشر الإعلان الآن في سوق سوريا ✨', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
-
 
 // =============================================================
 // 6. شاشة تفاصيل الإعلان الكاملة مع التفاوض والتعليقات والاتصال
@@ -1706,7 +1620,6 @@ class FullAdDetailsScreen extends StatefulWidget {
   final Function(AdItem) onAdUpdated;
   final Function(String) onAdDeleted;
 
-
   const FullAdDetailsScreen({
     Key? key,
     required this.ad,
@@ -1717,11 +1630,9 @@ class FullAdDetailsScreen extends StatefulWidget {
     required this.onAdDeleted,
   }) : super(key: key);
 
-
   @override
   State<FullAdDetailsScreen> createState() => _FullAdDetailsScreenState();
 }
-
 
 class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
   late AdItem _ad;
@@ -1729,13 +1640,11 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
   final TextEditingController _commentController = TextEditingController();
   final List<String> _comments = ['هل السعر قابل للتفاوض البسيط؟', 'أين موقع المعاينة بالتحديد؟'];
 
-
   @override
   void initState() {
     super.initState();
     _ad = widget.ad;
   }
-
 
   void _openNegotiateDialog() {
     showDialog(
@@ -1791,186 +1700,178 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
     );
   }
 
-
   void _toggleSold() {
     final updated = _ad.copyWith(isSold: !_ad.isSold);
     setState(() => _ad = updated);
     widget.onAdUpdated(updated);
   }
 
-
   void _deleteAd() {
     widget.onAdDeleted(_ad.id);
     Navigator.pop(context);
   }
-
 
   @override
   Widget build(BuildContext context) {
     const Color green = Color(0xFF0F5132);
     const Color gold = Color(0xFFD4AF37);
 
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: green,
-          title: Text(_ad.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          actions: [
-            IconButton(
-              icon: Icon(widget.isFavorite ? Icons.favorite : Icons.favorite_border, color: widget.isFavorite ? Colors.red : Colors.white),
-              onPressed: widget.onToggleFavorite,
-            ),
-          ],
-        ),
-        body: ListView(
-          padding: const EdgeInsets.only(bottom: 90),
-          children: [
-            Stack(
-              children: [
-                Container(
-                  height: 250,
-                  width: double.infinity,
-                  color: Colors.black,
-                  child: Image.network(_ad.imageUrls.isNotEmpty ? _ad.imageUrls.first : '', fit: BoxFit.cover),
-                ),
-                if (_ad.isSold)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black54,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                          decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
-                          child: const Text('✓ تـم الـبـيـع بالكامل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
-                        ),
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: green,
+        title: Text(_ad.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: Icon(widget.isFavorite ? Icons.favorite : Icons.favorite_border, color: widget.isFavorite ? Colors.red : Colors.white),
+            onPressed: widget.onToggleFavorite,
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 90),
+        children: [
+          Stack(
+            children: [
+              Container(
+                height: 250,
+                width: double.infinity,
+                color: Colors.black,
+                child: Image.network(_ad.imageUrls.isNotEmpty ? _ad.imageUrls.first : '', fit: BoxFit.cover),
+              ),
+              if (_ad.isSold)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black54,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
+                        child: const Text('✓ تـم الـبـيـع بالكامل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
                       ),
                     ),
                   ),
+                ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_ad.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        if (_ad.priceUsd != null)
+                          Text('\$${_ad.priceUsd!.toStringAsFixed(0)}', style: TextStyle(color: green, fontSize: 22, fontWeight: FontWeight.bold)),
+                        if (_ad.priceUsd != null && _ad.priceSyp != null) const SizedBox(width: 10),
+                        if (_ad.priceSyp != null)
+                          Text('${_ad.priceSyp!.toStringAsFixed(0)} ل.س', style: const TextStyle(color: Colors.blueGrey, fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: gold),
+                      onPressed: _openNegotiateDialog,
+                      icon: const Icon(Icons.handshake, color: green, size: 18),
+                      label: const Text('تفاوض على السعر 🤝', style: TextStyle(color: green, fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text('${_ad.governorate} - ${_ad.neighborhood}', style: const TextStyle(color: Colors.grey)),
+                const SizedBox(height: 14),
+                const Text('الوصف والمواصفات:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 6),
+                Text(_ad.description, style: const TextStyle(fontSize: 14, height: 1.5)),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _toggleSold,
+                        child: Text(_ad.isSold ? 'إلغاء تم البيع' : 'تمييز: تم البيع ✓'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        onPressed: _deleteAd,
+                        child: const Text('حذف الإعلان', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(),
+                const Text('التعليقات والاستفسارات العامة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _commentController,
+                        decoration: const InputDecoration(hintText: 'اكتب استفسارك هنا...', border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      style: IconButton.styleFrom(backgroundColor: green),
+                      icon: const Icon(Icons.send, color: Colors.white),
+                      onPressed: () {
+                        if (_commentController.text.isNotEmpty) {
+                          setState(() {
+                            _comments.add(_commentController.text);
+                            _commentController.clear();
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ..._comments.map((c) => Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.grey.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+                  child: Text('• $c'),
+                )),
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_ad.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          if (_ad.priceUsd != null)
-                            Text('\$${_ad.priceUsd!.toStringAsFixed(0)}', style: TextStyle(color: green, fontSize: 22, fontWeight: FontWeight.bold)),
-                          if (_ad.priceUsd != null && _ad.priceSyp != null) const SizedBox(width: 10),
-                          if (_ad.priceSyp != null)
-                            Text('${_ad.priceSyp!.toStringAsFixed(0)} ل.س', style: const TextStyle(color: Colors.blueGrey, fontSize: 16, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: gold),
-                        onPressed: _openNegotiateDialog,
-                        icon: const Icon(Icons.handshake, color: green, size: 18),
-                        label: const Text('تفاوض على السعر 🤝', style: TextStyle(color: green, fontWeight: FontWeight.bold, fontSize: 12)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text('${_ad.governorate} - ${_ad.neighborhood}', style: const TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 14),
-                  const Text('الوصف والمواصفات:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 6),
-                  Text(_ad.description, style: const TextStyle(fontSize: 14, height: 1.5)),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _toggleSold,
-                          child: Text(_ad.isSold ? 'إلغاء تم البيع' : 'تمييز: تم البيع ✓'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                          onPressed: _deleteAd,
-                          child: const Text('حذف الإعلان', style: TextStyle(color: Colors.white)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(),
-                  const Text('التعليقات والاستفسارات العامة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _commentController,
-                          decoration: const InputDecoration(hintText: 'اكتب استفسارك هنا...', border: OutlineInputBorder()),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        style: IconButton.styleFrom(backgroundColor: green),
-                        icon: const Icon(Icons.send, color: Colors.white),
-                        onPressed: () {
-                          if (_commentController.text.isNotEmpty) {
-                            setState(() {
-                              _comments.add(_commentController.text);
-                              _commentController.clear();
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ..._comments.map((c) => Container(
-                    margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.grey.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
-                    child: Text('• $c'),
-                  )),
-                ],
+          ),
+        ],
+      ),
+      bottomSheet: Container(
+        padding: const EdgeInsets.all(12),
+        color: Colors.white,
+        child: Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: green, padding: const EdgeInsets.symmetric(vertical: 12)),
+                icon: const Icon(Icons.phone, color: Colors.white),
+                label: const Text('اتصال هاتفي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () => launchUrl(Uri.parse('tel:${_ad.publisherPhone}')),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366), padding: const EdgeInsets.symmetric(vertical: 12)),
+                icon: const Icon(Icons.chat, color: Colors.white),
+                label: const Text('واتساب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () => launchUrl(Uri.parse('https://wa.me/963${_ad.publisherPhone}')),
               ),
             ),
           ],
-        ),
-        bottomSheet: Container(
-          padding: const EdgeInsets.all(12),
-          color: Colors.white,
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: green, padding: const EdgeInsets.symmetric(vertical: 12)),
-                  icon: const Icon(Icons.phone, color: Colors.white),
-                  label: const Text('اتصال هاتفي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: () => launchUrl(Uri.parse('tel:${_ad.publisherPhone}')),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366), padding: const EdgeInsets.symmetric(vertical: 12)),
-                  icon: const Icon(Icons.chat, color: Colors.white),
-                  label: const Text('واتساب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: () => launchUrl(Uri.parse('https://wa.me/963${_ad.publisherPhone}')),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 }
-
 
 // =============================================================
 // 7. شاشة المحادثة والتفاوض السعري التفاعلية (Chat & Bargain)
@@ -1980,7 +1881,6 @@ class FullChatNegotiationScreen extends StatefulWidget {
   final String productTitle;
   final double initialPrice;
 
-
   const FullChatNegotiationScreen({
     Key? key,
     required this.partnerName,
@@ -1988,16 +1888,13 @@ class FullChatNegotiationScreen extends StatefulWidget {
     required this.initialPrice,
   }) : super(key: key);
 
-
   @override
   State<FullChatNegotiationScreen> createState() => _FullChatNegotiationScreenState();
 }
 
-
 class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
   final TextEditingController _msgController = TextEditingController();
   final List<ChatMessage> _messages = [];
-
 
   @override
   void initState() {
@@ -2025,7 +1922,6 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
     );
   }
 
-
   void _sendMessage() {
     final txt = _msgController.text.trim();
     if (txt.isEmpty) return;
@@ -2044,82 +1940,76 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
     const Color green = Color(0xFF0F5132);
 
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: green,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.partnerName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              Text(widget.productTitle, style: const TextStyle(fontSize: 11, color: Colors.white70)),
-            ],
-          ),
-        ),
-        body: Column(
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: green,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: _messages.length,
-                itemBuilder: (ctx, idx) {
-                  final msg = _messages[idx];
-                  return Align(
-                    alignment: msg.isMe ? Alignment.centerLeft : Alignment.centerRight,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: msg.isMe ? green.withOpacity(0.15) : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(msg.message, style: const TextStyle(fontSize: 14)),
-                          const SizedBox(height: 4),
-                          Text('${msg.timestamp.hour}:${msg.timestamp.minute}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _msgController,
-                      decoration: const InputDecoration(hintText: 'اكتب رسالتك أو قدم عرض سعر جديد...', border: OutlineInputBorder()),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    style: IconButton.styleFrom(backgroundColor: green),
-                    icon: const Icon(Icons.send, color: Colors.white),
-                    onPressed: _sendMessage,
-                  ),
-                ],
-              ),
-            ),
+            Text(widget.partnerName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            Text(widget.productTitle, style: const TextStyle(fontSize: 11, color: Colors.white70)),
           ],
         ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: _messages.length,
+              itemBuilder: (ctx, idx) {
+                final msg = _messages[idx];
+                return Align(
+                  alignment: msg.isMe ? Alignment.centerLeft : Alignment.centerRight,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: msg.isMe ? green.withOpacity(0.15) : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(msg.message, style: const TextStyle(fontSize: 14)),
+                        const SizedBox(height: 4),
+                        Text('${msg.timestamp.hour}:${msg.timestamp.minute}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: Colors.white,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _msgController,
+                    decoration: const InputDecoration(hintText: 'اكتب رسالتك أو قدم عرض سعر جديد...', border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  style: IconButton.styleFrom(backgroundColor: green),
+                  icon: const Icon(Icons.send, color: Colors.white),
+                  onPressed: _sendMessage,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-
 
 // =============================================================
 // 8. شاشة خطط الاشتراك VIP
@@ -2128,51 +2018,45 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
   final Color green;
   final Color gold;
 
-
   const FullSubscriptionPlansScreen({Key? key, required this.green, required this.gold}) : super(key: key);
-
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: green,
-          title: const Text('باقات وترقيات VIP 👑', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildPlanCard(
-              title: 'الباقة المجانية',
-              price: '0 ل.س / شهرياً',
-              features: ['نشر حتى 5 إعلانات شهرياً', '3 صور لكل إعلان', 'دعم فني عادي'],
-              isVip: false,
-              green: green,
-              gold: gold,
-            ),
-            const SizedBox(height: 16),
-            _buildPlanCard(
-              title: 'الباقة الذهبية VIP 👑',
-              price: '150,000 ل.س / شهرياً (خصم 50%)',
-              features: [
-                'إعلانات غير محدودة شهرياً',
-                'حتى 10 صور عالية الدقة لكل إعلان',
-                'شارة VIP الذهبية المميزة في صدارة البحث',
-                'تفعيل زر التفاوض الفوري والمباشر',
-                'دفع سهل عبر سيريتل كاش / MTN كاش'
-              ],
-              isVip: true,
-              green: green,
-              gold: gold,
-            ),
-          ],
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: green,
+        title: const Text('باقات وترقيات VIP 👑', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildPlanCard(
+            title: 'الباقة المجانية',
+            price: '0 ل.س / شهرياً',
+            features: ['نشر حتى 5 إعلانات شهرياً', '3 صور لكل إعلان', 'دعم فني عادي'],
+            isVip: false,
+            green: green,
+            gold: gold,
+          ),
+          const SizedBox(height: 16),
+          _buildPlanCard(
+            title: 'الباقة الذهبية VIP 👑',
+            price: '150,000 ل.س / شهرياً (خصم 50%)',
+            features: [
+              'إعلانات غير محدودة شهرياً',
+              'حتى 10 صور عالية الدقة لكل إعلان',
+              'شارة VIP الذهبية المميزة في صدارة البحث',
+              'تفعيل زر التفاوض الفوري والمباشر',
+              'دفع سهل عبر سيريتل كاش / MTN كاش'
+            ],
+            isVip: true,
+            green: green,
+            gold: gold,
+          ),
+        ],
       ),
     );
   }
-
 
   Widget _buildPlanCard({
     required String title,
@@ -2201,7 +2085,6 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
   }
 }
 
-
 // =============================================================
 // 9. لوحة تحكم الأدمن وغرفة العمليات (Admin Control Panel)
 // =============================================================
@@ -2211,7 +2094,6 @@ class FullAdminPanelScreen extends StatefulWidget {
   final List<String> newsList;
   final Function(List<String>) onUpdateNews;
 
-
   const FullAdminPanelScreen({
     Key? key,
     required this.green,
@@ -2220,23 +2102,19 @@ class FullAdminPanelScreen extends StatefulWidget {
     required this.onUpdateNews,
   }) : super(key: key);
 
-
   @override
   State<FullAdminPanelScreen> createState() => _FullAdminPanelScreenState();
 }
 
-
 class _FullAdminPanelScreenState extends State<FullAdminPanelScreen> {
   final TextEditingController _newsController = TextEditingController();
   late List<String> _news;
-
 
   @override
   void initState() {
     super.initState();
     _news = List.from(widget.newsList);
   }
-
 
   void _addNews() {
     final txt = _newsController.text.trim();
@@ -2249,52 +2127,48 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF991B1B),
-          title: const Text('غرفة العمليات - Super Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text('إدارة الشريط الإخباري العاجل:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _newsController,
-                    decoration: const InputDecoration(hintText: 'اكتب نص خبر عاجل جديد...', border: OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  style: IconButton.styleFrom(backgroundColor: widget.green),
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  onPressed: _addNews,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ..._news.map((n) => Card(
-              child: ListTile(
-                title: Text(n, style: const TextStyle(fontSize: 13)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () {
-                    setState(() => _news.remove(n));
-                    widget.onUpdateNews(_news);
-                  },
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF991B1B),
+        title: const Text('غرفة العمليات - Super Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text('إدارة الشريط الإخباري العاجل:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _newsController,
+                  decoration: const InputDecoration(hintText: 'اكتب نص خبر عاجل جديد...', border: OutlineInputBorder()),
                 ),
               ),
-            )),
-          ],
-        ),
+              const SizedBox(width: 8),
+              IconButton(
+                style: IconButton.styleFrom(backgroundColor: widget.green),
+                icon: const Icon(Icons.add, color: Colors.white),
+                onPressed: _addNews,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._news.map((n) => Card(
+            child: ListTile(
+              title: Text(n, style: const TextStyle(fontSize: 13)),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () {
+                  setState(() => _news.remove(n));
+                  widget.onUpdateNews(_news);
+                },
+              ),
+            ),
+          )),
+        ],
       ),
     );
   }
