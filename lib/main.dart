@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -15,12 +16,22 @@ void main() async {
   String savedEmail = '';
   String savedUserId = '';
 
+  const String supabaseUrl = 'https://zbjjkigkxbpkpmpcdqc.supabase.co';
+  const String supabaseAnonKey =
+      'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_zbjjkigkxbpkpmpcdqc';
+
   try {
+    // تهيئة الاتصال الآمن مع مهلة زمنية لحماية التطبيق من أخطاء الـ Socket
     await Supabase.initialize(
-      url: 'https://zbjjkigkxbpkpmpcdqc.supabase.co',
-      anonKey:
-          'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_zbjjkigkxbpkpmpcdqc',
-    );
+      url: supabaseUrl.trim(),
+      anonKey: supabaseAnonKey.trim(),
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.pkce,
+      ),
+      realtimeClientOptions: const RealtimeClientOptions(
+        logLevel: RealtimeLogLevel.info,
+      ),
+    ).timeout(const Duration(seconds: 10));
 
     // فحص الجلسة الفعلية للمستخدم عبر Auth Session
     final session = Supabase.instance.client.auth.currentSession;
@@ -29,6 +40,10 @@ void main() async {
       savedEmail = session.user.email!;
       savedUserId = session.user.id;
     }
+  } on SocketException catch (e) {
+    debugPrint('⚠️ خطأ في الشبكة (SocketException): ${e.message}');
+  } on TimeoutException catch (e) {
+    debugPrint('⚠️ انتهت مهلة الاتصال بالخادم: $e');
   } catch (e) {
     debugPrint('Supabase Connection notice: $e');
   }
@@ -43,7 +58,7 @@ void main() async {
     );
   }
 
-  // تحميل البيانات السحابية الحقيقية عند الإقلاع بشكل آمن
+  // تحميل البيانات السحابية الحقيقية عند الإقلاع بشكل آمن مع معالجة الأخطاء
   try {
     await appState.initializeDataFromSupabase();
   } catch (e) {
@@ -818,15 +833,19 @@ class AppStateManager extends ChangeNotifier {
   // استدعاء وتحميل البيانات الحقيقية من Supabase
   // ==========================================
   Future<void> initializeDataFromSupabase() async {
-    await Future.wait([
-      fetchAppSettings(),
-      fetchAds(),
-      fetchBanners(),
-      fetchCategories(),
-      fetchPlans(),
-      fetchNewsTicker(),
-      fetchPaymentMethods(),
-    ]);
+    try {
+      await Future.wait([
+        fetchAppSettings(),
+        fetchAds(),
+        fetchBanners(),
+        fetchCategories(),
+        fetchPlans(),
+        fetchNewsTicker(),
+        fetchPaymentMethods(),
+      ]).timeout(const Duration(seconds: 12));
+    } catch (e) {
+      debugPrint('Supabase initial fetch batch notice: $e');
+    }
     await autoCleanupExpiredSoldAds();
   }
 
@@ -843,7 +862,11 @@ class AppStateManager extends ChangeNotifier {
   // 1. جلب الإعدادات العامة
   Future<void> fetchAppSettings() async {
     try {
-      final res = await _client.from('app_settings').select().maybeSingle();
+      final res = await _client
+          .from('app_settings')
+          .select()
+          .maybeSingle()
+          .timeout(const Duration(seconds: 8));
       if (res != null) {
         appTitle = res['app_title'] ?? appTitle;
         appSubtitle = res['app_subtitle'] ?? appSubtitle;
@@ -873,7 +896,8 @@ class AppStateManager extends ChangeNotifier {
       final response = await _client
           .from('ads')
           .select()
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
       ads = (response as List).map((row) => AdItem.fromMap(row)).toList();
       notifyListeners();
     } catch (e) {
@@ -884,7 +908,10 @@ class AppStateManager extends ChangeNotifier {
   // 3. جلب البنرات
   Future<void> fetchBanners() async {
     try {
-      final response = await _client.from('banners').select();
+      final response = await _client
+          .from('banners')
+          .select()
+          .timeout(const Duration(seconds: 8));
       banners =
           (response as List).map((row) => BannerItem.fromMap(row)).toList();
       notifyListeners();
@@ -896,7 +923,10 @@ class AppStateManager extends ChangeNotifier {
   // 4. جلب الأقسام
   Future<void> fetchCategories() async {
     try {
-      final response = await _client.from('categories').select();
+      final response = await _client
+          .from('categories')
+          .select()
+          .timeout(const Duration(seconds: 8));
       if ((response as List).isNotEmpty) {
         categories = response.map((row) => CategoryModel.fromMap(row)).toList();
       } else {
@@ -983,7 +1013,10 @@ class AppStateManager extends ChangeNotifier {
   // 5. جلب الباقات
   Future<void> fetchPlans() async {
     try {
-      final response = await _client.from('plans').select();
+      final response = await _client
+          .from('plans')
+          .select()
+          .timeout(const Duration(seconds: 8));
       if ((response as List).isNotEmpty) {
         plans = response.map((row) => PlanConfig.fromMap(row)).toList();
       } else {
@@ -1046,7 +1079,8 @@ class AppStateManager extends ChangeNotifier {
       final response = await _client
           .from('news_ticker')
           .select()
-          .order('id', ascending: true);
+          .order('id', ascending: true)
+          .timeout(const Duration(seconds: 8));
       if ((response as List).isNotEmpty) {
         newsTicker =
             response.map((row) => row['text']?.toString() ?? '').toList();
@@ -1066,7 +1100,10 @@ class AppStateManager extends ChangeNotifier {
   // 7. جلب طرق الدفع
   Future<void> fetchPaymentMethods() async {
     try {
-      final response = await _client.from('payment_methods').select();
+      final response = await _client
+          .from('payment_methods')
+          .select()
+          .timeout(const Duration(seconds: 8));
       if ((response as List).isNotEmpty) {
         paymentMethods =
             response.map((row) => PaymentMethod.fromMap(row)).toList();
@@ -1128,7 +1165,7 @@ class AppStateManager extends ChangeNotifier {
         'is_maintenance': isMaintenanceMode,
         'maintenance_message': maintenanceMessage,
         'disclaimer_text': disclaimerText,
-      });
+      }).timeout(const Duration(seconds: 8));
     } catch (e) {
       debugPrint('Error updating app config: $e');
     }
@@ -1157,7 +1194,7 @@ class AppStateManager extends ChangeNotifier {
         'app_bar_color': appBarColor.value,
         'button_color': buttonColor.value,
         'scaffold_bg_color': scaffoldBgColor.value,
-      });
+      }).timeout(const Duration(seconds: 8));
     } catch (e) {
       debugPrint('Error updating app colors: $e');
     }
@@ -1185,10 +1222,12 @@ class AppStateManager extends ChangeNotifier {
       String? password}) async {
     try {
       if (password != null && password.isNotEmpty) {
-        final authRes = await _client.auth.signInWithPassword(
-          email: email.trim(),
-          password: password,
-        );
+        final authRes = await _client.auth
+            .signInWithPassword(
+              email: email.trim(),
+              password: password,
+            )
+            .timeout(const Duration(seconds: 10));
         currentUserId = authRes.user?.id ?? '';
       }
     } catch (e) {
@@ -1213,7 +1252,7 @@ class AppStateManager extends ChangeNotifier {
         'phone': phone,
         'role': isSuperAdmin ? 'super_admin' : 'user',
         'plan_id': currentUserPlanId,
-      });
+      }).timeout(const Duration(seconds: 8));
     } catch (e) {
       debugPrint('Profile upsert notice: $e');
     }
@@ -1224,7 +1263,7 @@ class AppStateManager extends ChangeNotifier {
 
   Future<void> logoutUser() async {
     try {
-      await _client.auth.signOut();
+      await _client.auth.signOut().timeout(const Duration(seconds: 6));
     } catch (e) {
       debugPrint('Logout Supabase notice: $e');
     }
@@ -1251,7 +1290,7 @@ class AppStateManager extends ChangeNotifier {
           final fileName = uri.pathSegments.last;
           await Supabase.instance.client.storage
               .from(kStorageBucketAds)
-              .remove([fileName]);
+              .remove([fileName]).timeout(const Duration(seconds: 8));
         }
       } catch (e) {
         debugPrint('Storage Cleanup notice: $e');
@@ -1269,7 +1308,11 @@ class AppStateManager extends ChangeNotifier {
 
     for (final ad in expiredAds) {
       try {
-        await _client.from('ads').delete().eq('id', ad.id);
+        await _client
+            .from('ads')
+            .delete()
+            .eq('id', ad.id)
+            .timeout(const Duration(seconds: 8));
         await deleteStorageImages(ad.imageUrls);
         ads.removeWhere((x) => x.id == ad.id);
       } catch (e) {
@@ -1581,8 +1624,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       final res = await Supabase.instance.client
           .from('favorites')
           .select('ad_id')
-          .eq('user_id', _manager.currentUserId);
-      if (res is List) {
+          .eq('user_id', _manager.currentUserId)
+          .timeout(const Duration(seconds: 8));
+
+      if (res is List && mounted) {
         setState(() {
           _favoriteAdIds.clear();
           for (final row in res) {
@@ -1611,11 +1656,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         await Supabase.instance.client
             .from('favorites')
             .delete()
-            .match({'user_id': _manager.currentUserId, 'ad_id': adId});
+            .match({'user_id': _manager.currentUserId, 'ad_id': adId}).timeout(
+                const Duration(seconds: 8));
       } else {
         await Supabase.instance.client
             .from('favorites')
-            .insert({'user_id': _manager.currentUserId, 'ad_id': adId});
+            .insert({'user_id': _manager.currentUserId, 'ad_id': adId}).timeout(
+                const Duration(seconds: 8));
       }
     } catch (e) {
       debugPrint('Error toggling favorite: $e');
@@ -1628,8 +1675,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       final res = await Supabase.instance.client
           .from('chat_messages')
           .select()
-          .order('created_at', ascending: false);
-      if (res is List) {
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 8));
+
+      if (res is List && mounted) {
         setState(() {
           _userChatThreads = List<Map<String, dynamic>>.from(res);
         });
@@ -1640,12 +1689,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 
   Future<void> _initLiveAdsFromSupabase() async {
-    setState(() => _isLoadingAds = true);
+    if (mounted) setState(() => _isLoadingAds = true);
     try {
       final res = await Supabase.instance.client
           .from('ads')
           .select()
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
 
       if (res is List) {
         _manager.ads = res
@@ -1653,7 +1703,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             .toList();
       }
 
-      final bannerRes = await Supabase.instance.client.from('banners').select();
+      final bannerRes = await Supabase.instance.client
+          .from('banners')
+          .select()
+          .timeout(const Duration(seconds: 8));
+
       if (bannerRes is List) {
         _manager.banners = bannerRes
             .map((map) => BannerItem.fromMap(map as Map<String, dynamic>))
@@ -1664,8 +1718,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         final pendingRes = await Supabase.instance.client
             .from('ads')
             .select('id')
-            .eq('status', 'pending');
-        if (pendingRes is List) {
+            .eq('status', 'pending')
+            .timeout(const Duration(seconds: 8));
+
+        if (pendingRes is List && mounted) {
           setState(() => _pendingAdsCount = pendingRes.length);
         }
       }
@@ -2193,7 +2249,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       onTap: () async {
         if (banner.targetUrl.isNotEmpty) {
           final uri = Uri.tryParse(banner.targetUrl);
-          if (uri != null) await launchUrl(uri);
+          if (uri != null && await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
         }
       },
       child: Container(
@@ -2380,7 +2438,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-  /// كارد المنشور المصمم لشبكة العمودين (2-Column GridView)
   Widget _buildGridAdCard(AdItem ad) {
     final isFav = _favoriteAdIds.contains(ad.id);
 
@@ -3044,12 +3101,14 @@ class _AuthScreenState extends State<AuthScreen> {
       final formattedPhone = phone.startsWith('+')
           ? phone
           : '+963${phone.startsWith('0') ? phone.substring(1) : phone}';
-      await Supabase.instance.client.auth.signInWithOtp(phone: formattedPhone);
-      setState(() {
-        _isWaitingForOtp = true;
-        _isLoading = false;
-      });
+      await Supabase.instance.client.auth
+          .signInWithOtp(phone: formattedPhone)
+          .timeout(const Duration(seconds: 10));
       if (mounted) {
+        setState(() {
+          _isWaitingForOtp = true;
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content:
@@ -3057,10 +3116,12 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
     } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في إرسال الرمز: $e')),
-      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في إرسال الرمز: $e')),
+        );
+      }
     }
   }
 
@@ -3084,29 +3145,32 @@ class _AuthScreenState extends State<AuthScreen> {
       final formattedPhone = phone.startsWith('+')
           ? phone
           : '+963${phone.startsWith('0') ? phone.substring(1) : phone}';
-      final res = await Supabase.instance.client.auth.verifyOTP(
-        phone: formattedPhone,
-        token: token,
-        type: OtpType.sms,
-      );
+      final res = await Supabase.instance.client.auth
+          .verifyOTP(
+            phone: formattedPhone,
+            token: token,
+            type: OtpType.sms,
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (res.user != null) {
         _manager.setSessionUser(
             userId: res.user!.id, email: res.user!.email ?? '', name: name);
-        await Supabase.instance.client.from('users_profiles').upsert({
-          'id': res.user!.id,
-          'name': name,
-          'phone': phone,
-          'role': _manager.isSuperAdmin ? 'super_admin' : 'user',
-        });
+        try {
+          await Supabase.instance.client.from('users_profiles').upsert({
+            'id': res.user!.id,
+            'name': name,
+            'phone': phone,
+            'role': _manager.isSuperAdmin ? 'super_admin' : 'user',
+          }).timeout(const Duration(seconds: 8));
+        } catch (_) {}
       }
     } catch (e) {
       debugPrint('OTP Verification Notice: $e');
     }
 
-    setState(() => _isLoading = false);
-
     if (mounted) {
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('🎉 تم التحقق وتأكيد رقم الهاتف $phone بنجاح!'),
@@ -3141,9 +3205,9 @@ class _AuthScreenState extends State<AuthScreen> {
           email: email,
           password: password,
           data: {'name': name, 'phone': phone},
-        );
+        ).timeout(const Duration(seconds: 12));
 
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
 
         if (res.session == null && res.user != null) {
           if (mounted) _showEmailVerificationDialog(email);
@@ -3151,28 +3215,31 @@ class _AuthScreenState extends State<AuthScreen> {
         } else if (res.user != null) {
           _manager.setSessionUser(
               userId: res.user!.id, email: email, name: name);
-          await Supabase.instance.client.from('users_profiles').upsert({
-            'id': res.user!.id,
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'role': _manager.isSuperAdmin ? 'super_admin' : 'user',
-          });
+          try {
+            await Supabase.instance.client.from('users_profiles').upsert({
+              'id': res.user!.id,
+              'name': name,
+              'email': email,
+              'phone': phone,
+              'role': _manager.isSuperAdmin ? 'super_admin' : 'user',
+            }).timeout(const Duration(seconds: 8));
+          } catch (_) {}
         }
       } else {
-        final res = await Supabase.instance.client.auth.signInWithPassword(
-          email: email,
-          password: password,
-        );
+        final res = await Supabase.instance.client.auth
+            .signInWithPassword(
+              email: email,
+              password: password,
+            )
+            .timeout(const Duration(seconds: 12));
         if (res.user != null) {
           _manager.setSessionUser(
               userId: res.user!.id, email: email, name: name);
         }
       }
 
-      setState(() => _isLoading = false);
-
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('🎉 مرحباً بك يا $name في ${_manager.appTitle}!'),
@@ -3185,8 +3252,8 @@ class _AuthScreenState extends State<AuthScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('خطأ في تسجيل الدخول: $e'),
@@ -3668,52 +3735,58 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
       return;
     }
 
-    final List<XFile> images = await _picker.pickMultiImage(
-      imageQuality: 70,
-      maxWidth: 1200,
-      maxHeight: 1200,
-    );
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(
+        imageQuality: 70,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      );
 
-    if (images.isNotEmpty) {
-      setState(() => _isSubmitting = true);
-      final selectedBatch = images.take(remainingAllowed).toList();
+      if (images.isNotEmpty) {
+        setState(() => _isSubmitting = true);
+        final selectedBatch = images.take(remainingAllowed).toList();
 
-      for (final image in selectedBatch) {
-        try {
-          final Uint8List imageBytes = await image.readAsBytes();
-          setState(() => _previewImageBytes.add(imageBytes));
+        for (final image in selectedBatch) {
+          try {
+            final Uint8List imageBytes = await image.readAsBytes();
+            setState(() => _previewImageBytes.add(imageBytes));
 
-          final cleanName =
-              image.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-          final fileName =
-              'ad_${DateTime.now().millisecondsSinceEpoch}_$cleanName';
+            final cleanName =
+                image.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+            final fileName =
+                'ad_${DateTime.now().millisecondsSinceEpoch}_$cleanName';
 
-          await Supabase.instance.client.storage
-              .from(kStorageBucketAds)
-              .uploadBinary(
-                fileName,
-                imageBytes,
-                fileOptions:
-                    const FileOptions(contentType: 'image/jpeg', upsert: true),
-              );
+            await Supabase.instance.client.storage
+                .from(kStorageBucketAds)
+                .uploadBinary(
+                  fileName,
+                  imageBytes,
+                  fileOptions: const FileOptions(
+                      contentType: 'image/jpeg', upsert: true),
+                )
+                .timeout(const Duration(seconds: 12));
 
-          final publicUrl = Supabase.instance.client.storage
-              .from(kStorageBucketAds)
-              .getPublicUrl(fileName);
-          setState(() => _uploadedImageUrls.add(publicUrl));
-        } catch (e) {
-          debugPrint('Multi-image upload error: $e');
+            final publicUrl = Supabase.instance.client.storage
+                .from(kStorageBucketAds)
+                .getPublicUrl(fileName);
+            setState(() => _uploadedImageUrls.add(publicUrl));
+          } catch (e) {
+            debugPrint('Multi-image upload notice: $e');
+          }
+        }
+
+        setState(() => _isSubmitting = false);
+        if (images.length > remainingAllowed && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'تم رفع أول $remainingAllowed صور فقط بحسب سعة باقتك.')),
+          );
         }
       }
-
+    } catch (e) {
       setState(() => _isSubmitting = false);
-      if (images.length > remainingAllowed && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('تم رفع أول $remainingAllowed صور فقط بحسب سعة باقتك.')),
-        );
-      }
+      debugPrint('Image picker error: $e');
     }
   }
 
@@ -3764,12 +3837,13 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
           .from('ads')
           .insert(newAdData)
           .select()
-          .single();
+          .single()
+          .timeout(const Duration(seconds: 12));
 
       final createdAd = AdItem.fromMap(res);
       widget.onAdCreated(createdAd);
     } catch (e) {
-      debugPrint('Supabase insert ad error: $e');
+      debugPrint('Supabase insert ad fallback notice: $e');
       final fallbackAd = AdItem(
         id: 'ad-${DateTime.now().millisecondsSinceEpoch}',
         userId: _manager.currentUserId,
@@ -3806,8 +3880,10 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
       widget.onAdCreated(fallbackAd);
     }
 
-    setState(() => _isSubmitting = false);
-    if (mounted) Navigator.pop(context);
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -4229,6 +4305,13 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
     _fetchAdComments();
   }
 
+  @override
+  void dispose() {
+    _negotiateOfferController.dispose();
+    _commentController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchAdComments() async {
     setState(() => _isLoadingComments = true);
     try {
@@ -4236,8 +4319,10 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
           .from('ad_comments')
           .select()
           .eq('ad_id', _ad.id)
-          .order('created_at', ascending: true);
-      if (res is List) {
+          .order('created_at', ascending: true)
+          .timeout(const Duration(seconds: 8));
+
+      if (res is List && mounted) {
         setState(() {
           _comments.clear();
           _comments.addAll(List<Map<String, dynamic>>.from(res));
@@ -4275,7 +4360,10 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
     });
 
     try {
-      await Supabase.instance.client.from('ad_comments').insert(commentData);
+      await Supabase.instance.client
+          .from('ad_comments')
+          .insert(commentData)
+          .timeout(const Duration(seconds: 8));
     } catch (e) {
       debugPrint('Insert comment error: $e');
     }
@@ -4385,10 +4473,14 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
               widget.onAdUpdated(updated);
 
               try {
-                await Supabase.instance.client.from('ads').update({
-                  'is_sold': true,
-                  'sold_at': now.toIso8601String(),
-                }).eq('id', updated.id);
+                await Supabase.instance.client
+                    .from('ads')
+                    .update({
+                      'is_sold': true,
+                      'sold_at': now.toIso8601String(),
+                    })
+                    .eq('id', updated.id)
+                    .timeout(const Duration(seconds: 8));
               } catch (e) {
                 debugPrint('Supabase sold status update error: $e');
               }
@@ -4415,7 +4507,11 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
   void _deleteAdPermanently() async {
     final imagesToDelete = List<String>.from(_ad.imageUrls);
     try {
-      await Supabase.instance.client.from('ads').delete().eq('id', _ad.id);
+      await Supabase.instance.client
+          .from('ads')
+          .delete()
+          .eq('id', _ad.id)
+          .timeout(const Duration(seconds: 8));
       await AppStateManager.deleteStorageImages(imagesToDelete);
     } catch (e) {
       debugPrint('Supabase permanent delete error: $e');
@@ -4656,7 +4752,13 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                     label: const Text('مشاهدة فيديو الإعلان 🎥',
                         style: TextStyle(
                             color: Colors.white, fontWeight: FontWeight.bold)),
-                    onPressed: () => launchUrl(Uri.parse(_ad.videoUrl!)),
+                    onPressed: () async {
+                      final uri = Uri.tryParse(_ad.videoUrl!);
+                      if (uri != null && await canLaunchUrl(uri)) {
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
+                      }
+                    },
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -4805,8 +4907,12 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                   label: const Text('اتصال هاتفي',
                       style: TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: () =>
-                      launchUrl(Uri.parse('tel:${_ad.publisherPhone}')),
+                  onPressed: () async {
+                    final uri = Uri.parse('tel:${_ad.publisherPhone}');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri);
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -4819,8 +4925,15 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                   label: const Text('واتساب',
                       style: TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: () => launchUrl(
-                      Uri.parse('https://wa.me/963${_ad.publisherPhone}')),
+                  onPressed: () async {
+                    final cleanPhone =
+                        _ad.publisherPhone.replaceAll(RegExp(r'[^0-9]'), '');
+                    final uri = Uri.parse('https://wa.me/963$cleanPhone');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                    }
+                  },
                 ),
               ),
             ],
@@ -4848,6 +4961,12 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
   Uint8List? _receiptBytes;
   bool _isUploadingReceipt = false;
   final TextEditingController _notesController = TextEditingController();
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickReceiptImage() async {
     final img =
@@ -4885,7 +5004,8 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
             _receiptBytes!,
             fileOptions:
                 const FileOptions(contentType: 'image/jpeg', upsert: true),
-          );
+          )
+          .timeout(const Duration(seconds: 12));
 
       final publicUrl = Supabase.instance.client.storage
           .from(kStorageBucketReceipts)
@@ -4899,7 +5019,7 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
         'notes': _notesController.text.trim(),
         'status': 'pending',
         'created_at': DateTime.now().toIso8601String(),
-      });
+      }).timeout(const Duration(seconds: 8));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -5100,21 +5220,28 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
     _fetchLiveChatMessages();
   }
 
+  @override
+  void dispose() {
+    _msgController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchLiveChatMessages() async {
     setState(() => _isLoadingMessages = true);
     try {
       final res = await Supabase.instance.client
           .from('chat_messages')
           .select()
-          .order('created_at', ascending: true);
+          .order('created_at', ascending: true)
+          .timeout(const Duration(seconds: 8));
 
-      if (res is List && res.isNotEmpty) {
+      if (res is List && res.isNotEmpty && mounted) {
         setState(() {
           _messages.clear();
           _messages.addAll(res.map((r) => ChatMessage.fromMap(
               r as Map<String, dynamic>, _manager.currentUserId)));
         });
-      } else {
+      } else if (mounted) {
         setState(() {
           _messages.add(
             ChatMessage(
@@ -5162,7 +5289,8 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
     try {
       await Supabase.instance.client
           .from('chat_messages')
-          .insert(newMsg.toMap());
+          .insert(newMsg.toMap())
+          .timeout(const Duration(seconds: 8));
     } catch (e) {
       debugPrint('Error inserting chat message: $e');
     }
@@ -5368,8 +5496,10 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
                               await Supabase.instance.client
                                   .from('users_profiles')
                                   .update({
-                                'plan_id': plan.id,
-                              }).eq('id', manager.currentUserId);
+                                    'plan_id': plan.id,
+                                  })
+                                  .eq('id', manager.currentUserId)
+                                  .timeout(const Duration(seconds: 8));
                             } catch (e) {
                               debugPrint('Error updating user plan: $e');
                             }
@@ -5497,7 +5627,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
               _selectedBannerBytes!,
               fileOptions:
                   const FileOptions(contentType: 'image/jpeg', upsert: true),
-            );
+            )
+            .timeout(const Duration(seconds: 12));
         finalImageUrl = Supabase.instance.client.storage
             .from(kStorageBucketBanners)
             .getPublicUrl(fileName);
@@ -5515,19 +5646,21 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
           .from('banners')
           .insert(newBannerData)
           .select()
-          .single();
+          .single()
+          .timeout(const Duration(seconds: 8));
+
       final newBanner = BannerItem.fromMap(res);
 
-      setState(() {
-        _manager.banners.add(newBanner);
-        _selectedBannerBytes = null;
-        _bannerTitleController.clear();
-        _bannerSubController.clear();
-        _bannerUrlController.clear();
-      });
-      _manager.notifyListeners();
-
       if (mounted) {
+        setState(() {
+          _manager.banners.add(newBanner);
+          _selectedBannerBytes = null;
+          _bannerTitleController.clear();
+          _bannerSubController.clear();
+          _bannerUrlController.clear();
+        });
+        _manager.notifyListeners();
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('🚀 تم رفع ونشر البنر سحابياً في Supabase بنجاح!')),
@@ -5866,7 +5999,9 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                           try {
                             await Supabase.instance.client
                                 .from('ads')
-                                .update({'status': 'approved'}).eq('id', ad.id);
+                                .update({'status': 'approved'})
+                                .eq('id', ad.id)
+                                .timeout(const Duration(seconds: 8));
                           } catch (e) {
                             debugPrint('Review ad note: $e');
                           }
@@ -5894,7 +6029,9 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                           try {
                             await Supabase.instance.client
                                 .from('ads')
-                                .update({'status': 'rejected'}).eq('id', ad.id);
+                                .update({'status': 'rejected'})
+                                .eq('id', ad.id)
+                                .timeout(const Duration(seconds: 8));
                           } catch (e) {
                             debugPrint('Review ad note: $e');
                           }
@@ -6004,7 +6141,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
               try {
                 await Supabase.instance.client
                     .from('categories')
-                    .insert(newCat.toMap());
+                    .insert(newCat.toMap())
+                    .timeout(const Duration(seconds: 8));
               } catch (e) {
                 debugPrint('Category insert notice: $e');
               }
@@ -6027,7 +6165,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                           await Supabase.instance.client
                               .from('categories')
                               .delete()
-                              .eq('id', c.id);
+                              .eq('id', c.id)
+                              .timeout(const Duration(seconds: 8));
                         } catch (e) {
                           debugPrint('Category delete note: $e');
                         }
@@ -6080,7 +6219,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                           try {
                             await Supabase.instance.client
                                 .from('plans')
-                                .upsert(updated.toMap());
+                                .upsert(updated.toMap())
+                                .timeout(const Duration(seconds: 8));
                           } catch (e) {
                             debugPrint('Plan update notice: $e');
                           }
@@ -6100,7 +6240,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                           try {
                             await Supabase.instance.client
                                 .from('plans')
-                                .upsert(updated.toMap());
+                                .upsert(updated.toMap())
+                                .timeout(const Duration(seconds: 8));
                           } catch (e) {
                             debugPrint('Plan condition notice: $e');
                           }
@@ -6246,9 +6387,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                   });
                   _manager.notifyListeners();
                   try {
-                    await Supabase.instance.client
-                        .from('news_ticker')
-                        .insert({'text': txt});
+                    await Supabase.instance.client.from('news_ticker').insert(
+                        {'text': txt}).timeout(const Duration(seconds: 8));
                   } catch (e) {
                     debugPrint('News ticker insert note: $e');
                   }
@@ -6364,7 +6504,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                           await Supabase.instance.client
                               .from('banners')
                               .delete()
-                              .eq('id', b.id);
+                              .eq('id', b.id)
+                              .timeout(const Duration(seconds: 8));
                         } catch (e) {
                           debugPrint('Banner delete note: $e');
                         }
@@ -6422,8 +6563,9 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                       try {
                         await Supabase.instance.client
                             .from('users_profiles')
-                            .update({'is_frozen': updatedUser.isFrozen}).eq(
-                                'id', user.id);
+                            .update({'is_frozen': updatedUser.isFrozen})
+                            .eq('id', user.id)
+                            .timeout(const Duration(seconds: 8));
                       } catch (e) {
                         debugPrint('User status update error: $e');
                       }
@@ -6441,8 +6583,9 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                       try {
                         await Supabase.instance.client
                             .from('users_profiles')
-                            .update({'is_banned': updatedUser.isBanned}).eq(
-                                'id', user.id);
+                            .update({'is_banned': updatedUser.isBanned})
+                            .eq('id', user.id)
+                            .timeout(const Duration(seconds: 8));
                       } catch (e) {
                         debugPrint('User ban update error: $e');
                       }
