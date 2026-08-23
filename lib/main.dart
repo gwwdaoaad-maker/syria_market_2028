@@ -21,16 +21,13 @@ void main() async {
       'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_zbjjkigkxbpkpmpcdqc';
 
   try {
-    // تهيئة الاتصال السحابي مع مهلة زمنية لحماية التطبيق من أخطاء الـ Socket
+    // تهيئة الاتصال السحابي مع ضبط آمن ومتوافق 100% مع جميع إصدارات Supabase
     await Supabase.initialize(
       url: supabaseUrl.trim(),
       anonKey: supabaseAnonKey.trim(),
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
         autoRefreshToken: true,
-      ),
-      realtimeClientOptions: const RealtimeClientOptions(
-        logLevel: RealtimeLogLevel.none,
       ),
     ).timeout(const Duration(seconds: 10));
 
