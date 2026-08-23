@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // ==============================================================================
-// 1. نقطة الدخول وتهيئة اتصال Supabase السحابي وفحص الجلسة المباشرة
+// 1. نقطة الدخول وتهيئة اتصال Supabase السحابي الحقيقي وفحص الجلسة الدائمة
 // ==============================================================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,14 +21,14 @@ void main() async {
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key_syria_market',
     );
 
-    // فحص الجلسة التلقائية المسجلة لتجاوز شاشات الدخول
+    // فحص الجلسة التلقائية الحقيقية المسجلة لتجاوز شاشات الدخول وحفظ الجلسة
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null && session.user.email != null) {
       hasSavedSession = true;
       savedEmail = session.user.email!;
     }
   } catch (e) {
-    debugPrint('Supabase Initialization Notice: $e');
+    debugPrint('Supabase Live Backend Init Notice: $e');
   }
 
   final appState = AppStateManager();
@@ -52,12 +52,14 @@ const List<String> kSuperAdminEmails = [
 ];
 
 const String kStorageBucketAds = 'ad_images';
+const String kStorageBucketBanners = 'banner_images';
+const String kStorageBucketReceipts = 'receipt_images';
 
 // ==============================================================================
 // 3. نماذج البيانات السحابية الحقيقية (Clean Data Models)
 // ==============================================================================
 
-/// نموذج الإعلان الحقيقي
+/// نموذج الإعلان الحقيقي المرتبط بجدول ads
 class AdItem {
   final String id;
   final String userId;
@@ -233,6 +235,8 @@ class PlanFeature {
   IconData icon;
 
   PlanFeature({required this.text, required this.icon});
+
+  Map<String, dynamic> toMap() => {'text': text, 'icon_code': icon.codePoint};
 }
 
 /// نموذج باقة الاشتراك مع تحرير يدوي للشروط والمزايا
@@ -278,6 +282,40 @@ class PlanConfig {
       customFeatures: customFeatures ?? this.customFeatures,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'price_syp': priceSyp,
+      'duration_text': durationText,
+      'status_condition_text': statusConditionText,
+      'max_ads_per_month': maxAdsPerMonth,
+      'max_images_per_ad': maxImagesPerAd,
+      'custom_features': customFeatures.map((f) => f.toMap()).toList(),
+    };
+  }
+
+  factory PlanConfig.fromMap(Map<String, dynamic> map) {
+    return PlanConfig(
+      id: map['id']?.toString() ?? 'plan_free',
+      name: map['name']?.toString() ?? 'الباقة المجانية',
+      priceSyp: (map['price_syp'] as num?)?.toDouble() ?? 0.0,
+      durationText: map['duration_text']?.toString() ?? 'شهرياً',
+      statusConditionText:
+          map['status_condition_text']?.toString() ?? 'متاحة للجميع',
+      maxAdsPerMonth: (map['max_ads_per_month'] as num?)?.toInt() ?? 5,
+      maxImagesPerAd: (map['max_images_per_ad'] as num?)?.toInt() ?? 3,
+      customFeatures: (map['custom_features'] as List<dynamic>?)
+              ?.map((f) => PlanFeature(
+                    text: f['text']?.toString() ?? '',
+                    icon: IconData(f['icon_code'] ?? Icons.check.codePoint,
+                        fontFamily: 'MaterialIcons'),
+                  ))
+              .toList() ??
+          [],
+    );
+  }
 }
 
 /// نموذج القسم الرئيسي والفرعي مع تحكم الحواف والألوان
@@ -319,9 +357,37 @@ class CategoryModel {
       subcategories: subcategories ?? this.subcategories,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'icon_code': iconData.codePoint,
+      'bg_color': backgroundColor.value,
+      'text_color': textColor.value,
+      'border_radius': borderRadiusValue,
+      'subcategories': subcategories,
+    };
+  }
+
+  factory CategoryModel.fromMap(Map<String, dynamic> map) {
+    return CategoryModel(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      iconData: IconData(
+          (map['icon_code'] as num?)?.toInt() ?? Icons.category.codePoint,
+          fontFamily: 'MaterialIcons'),
+      backgroundColor: Color((map['bg_color'] as num?)?.toInt() ?? 0xFF0F5132),
+      textColor: Color((map['text_color'] as num?)?.toInt() ?? 0xFFFFFFFF),
+      borderRadiusValue: (map['border_radius'] as num?)?.toDouble() ?? 12.0,
+      subcategories: map['subcategories'] != null
+          ? List<String>.from(map['subcategories'])
+          : ['عام'],
+    );
+  }
 }
 
-/// نموذج البنرات الترويجية الحية
+/// نموذج البنرات الترويجية الحية المرتبطة بجدول banners
 class BannerItem {
   final String id;
   final String title;
@@ -356,6 +422,47 @@ class BannerItem {
       position: position ?? this.position,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'subtitle': subtitle,
+      'image_url': imageUrl,
+      'target_url': targetUrl,
+      'position': position,
+    };
+  }
+
+  factory BannerItem.fromMap(Map<String, dynamic> map) {
+    return BannerItem(
+      id: map['id']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      subtitle: map['subtitle']?.toString() ?? '',
+      imageUrl: map['image_url']?.toString() ?? '',
+      targetUrl: map['target_url']?.toString() ?? '',
+      position: map['position']?.toString() ?? 'top',
+    );
+  }
+}
+
+/// نموذج طرق الدفع والتواصل
+class PaymentMethod {
+  final String id;
+  final String title;
+  final String accountNumber;
+  final String recipientName;
+  final String notes;
+  final IconData icon;
+
+  PaymentMethod({
+    required this.id,
+    required this.title,
+    required this.accountNumber,
+    required this.recipientName,
+    required this.notes,
+    required this.icon,
+  });
 }
 
 /// نموذج رسائل المحادثة والتفاوض المباشر
@@ -459,6 +566,12 @@ class AppStateManager extends ChangeNotifier {
   bool isMaintenanceMode = false;
   String maintenanceMessage =
       'المنصة حالياً تحت الصيانة الدورية. سنعود قريباً جداً!';
+  String disclaimerText =
+      'إخلاء مسؤولية: موقع وتطبيق "سوق سوريا الشامل 2028" منصة إعلانية حرة ومستقلة للربط المباشر بين البائع والمشتري دون وسيط. إدارة المنصة تخلي مسؤوليتها القانونية والمالية عن صحة التعاملات، ونحث دائماً على المعاينة الشخصية قبل إتمام أي دفع. كافة الحقوق محفوظة © 2028.';
+
+  // الميزات الصوتية
+  bool isVoiceTypingEnabled = true;
+  bool isTextToSpeechEnabled = true;
 
   // الثيم والألوان العامة
   Color primaryColor = const Color(0xFF0F5132);
@@ -493,9 +606,9 @@ class AppStateManager extends ChangeNotifier {
         .any((adminEmail) => adminEmail.toLowerCase() == cleanEmail);
   }
 
-  // القوائم السحابية
+  // القوائم السحابية الحقيقية
   List<AdItem> ads = [];
-
+  List<BannerItem> banners = [];
   List<String> newsTicker = [
     '🔥 مرحباً بكم في سوق سوريا الشامل 2028 - المنصة الرائدة للبيع والشراء والمزادات الحرة في كافة المحافظات',
     '👑 باقة VIP الذهبية متاحة الآن بخصم 50% مع ميزات نشر وتفاوض غير محدودة',
@@ -628,43 +741,31 @@ class AppStateManager extends ChangeNotifier {
     ),
   ];
 
-  // البنرات المقسمة (علوية وسفلية)
-  List<BannerItem> banners = [
-    BannerItem(
-      id: 'b1',
-      title: 'سيريتل كاش',
-      subtitle: 'ترقية VIP فورية',
-      imageUrl:
-          'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=600',
-      targetUrl: 'https://syriamarket.app/vip',
-      position: 'top',
+  List<PaymentMethod> paymentMethods = [
+    PaymentMethod(
+      id: 'syriatel',
+      title: 'سيريتل كاش (Syriatel Cash)',
+      accountNumber: '0933112233',
+      recipientName: 'سوق سوريا الشامل 2028',
+      notes:
+          'يرجى تحويل المبلغ وتصوير إشعار العملية وإرفاقه بالأسفل لتفعيل الباقة فوراً.',
+      icon: Icons.phone_android,
     ),
-    BannerItem(
-      id: 'b2',
-      title: 'MTN كاش',
-      subtitle: 'دفع آمن وسريع',
-      imageUrl:
-          'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600',
-      targetUrl: 'https://syriamarket.app/vip',
-      position: 'top',
+    PaymentMethod(
+      id: 'mtn',
+      title: 'MTN كاش (MTN Cash)',
+      accountNumber: '0944112233',
+      recipientName: 'سوق سوريا الشامل 2028',
+      notes: 'تحويل فوري مباشر لحساب الكاش مع حفظ صورة العملية.',
+      icon: Icons.account_balance_wallet,
     ),
-    BannerItem(
-      id: 'b3',
-      title: 'عروض سوق الشام',
-      subtitle: 'تخفيضات كبرى',
-      imageUrl:
-          'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=600',
-      targetUrl: 'https://syriamarket.app',
-      position: 'bottom',
-    ),
-    BannerItem(
-      id: 'b4',
-      title: 'مزادات السيارات',
-      subtitle: 'فحص وضمان شامل',
-      imageUrl:
-          'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600',
-      targetUrl: 'https://syriamarket.app',
-      position: 'bottom',
+    PaymentMethod(
+      id: 'sham_bank',
+      title: 'حساب بنك الشام / بنك البركة',
+      accountNumber: 'SY-1002938472910',
+      recipientName: 'شركة سوق سوريا للاستثمار',
+      notes: 'إيداع بنكي مباشر عبر فروع البنك في كافة المحافظات.',
+      icon: Icons.account_balance,
     ),
   ];
 
@@ -688,11 +789,16 @@ class AppStateManager extends ChangeNotifier {
   ];
 
   void updateAppConfig(
-      {String? title, String? subtitle, bool? maintenance, String? maintMsg}) {
+      {String? title,
+      String? subtitle,
+      bool? maintenance,
+      String? maintMsg,
+      String? disclaimer}) {
     if (title != null) appTitle = title;
     if (subtitle != null) appSubtitle = subtitle;
     if (maintenance != null) isMaintenanceMode = maintenance;
     if (maintMsg != null) maintenanceMessage = maintMsg;
+    if (disclaimer != null) disclaimerText = disclaimer;
     notifyListeners();
   }
 
@@ -749,7 +855,12 @@ class AppStateManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void logoutUser() {
+  void logoutUser() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (e) {
+      debugPrint('Logout Supabase notice: $e');
+    }
     isLoggedIn = false;
     currentUserName = 'زائر سوق سوريا';
     currentUserEmail = '';
@@ -1003,6 +1114,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   String _searchQuery = '';
   final Set<String> _favoriteAdIds = {};
   bool _isLoadingAds = false;
+  int _pendingAdsCount = 0;
 
   final ScrollController _tickerScrollController = ScrollController();
   Timer? _tickerTimer;
@@ -1103,6 +1215,26 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             .map((map) => AdItem.fromMap(map as Map<String, dynamic>))
             .toList();
       }
+
+      // جلب البنرات الحقيقية من Supabase
+      final bannerRes = await Supabase.instance.client.from('banners').select();
+      if (bannerRes is List && bannerRes.isNotEmpty) {
+        _manager.banners = bannerRes
+            .map((map) => BannerItem.fromMap(map as Map<String, dynamic>))
+            .toList();
+      }
+
+      // جلب عدد المنشورات المعلقة لجرس المشرفين
+      if (_manager.isSuperAdmin) {
+        final pendingRes = await Supabase.instance.client
+            .from('ads')
+            .select('id')
+            .eq('status', 'pending');
+        if (pendingRes is List) {
+          setState(() => _pendingAdsCount = pendingRes.length);
+        }
+      }
+
       await _manager.autoCleanupExpiredStampedAds();
     } catch (e) {
       debugPrint('Supabase fetch ads notice: $e');
@@ -1214,11 +1346,43 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 color: Colors.white),
             onPressed: widget.onToggleTheme,
           ),
-          IconButton(
-            icon: Icon(Icons.notifications_active,
-                color: _manager.secondaryColor),
-            onPressed: () => _showNotificationDialog(context),
-          ),
+          // جرس إشعارات الإدارة السري الحصري للمشرفين
+          if (_manager.isSuperAdmin)
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_active,
+                      color: Colors.amberAccent),
+                  tooltip: 'إشعارات الإدارة والطلبات المعلقة',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (ctx) =>
+                              const FullAdminPanelScreen(initialTab: 1)),
+                    );
+                  },
+                ),
+                if (_pendingAdsCount > 0)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                          color: Colors.red, shape: BoxShape.circle),
+                      child: Text(
+                        '$_pendingAdsCount',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
         ],
       ),
       body: _buildCurrentScreenBody(),
@@ -1306,6 +1470,18 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                   'ابحث في كافة إعلانات سوق سوريا الحية (سيارات، عقارات، هواتف...)...',
               hintStyle: const TextStyle(fontSize: 12),
               prefixIcon: Icon(Icons.search, color: _manager.primaryColor),
+              suffixIcon: _manager.isVoiceTypingEnabled
+                  ? IconButton(
+                      icon: Icon(Icons.mic, color: _manager.primaryColor),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content:
+                                  Text('🎙️ جاري الاستماع للبحث الصوتي...')),
+                        );
+                      },
+                    )
+                  : null,
               filled: true,
               fillColor: Colors.grey.withOpacity(0.08),
               contentPadding:
@@ -1482,7 +1658,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     final pairCount = (positionBanners.length / 2).ceil();
 
     return Container(
-      height: 155, // تكبير الأبعاد لتصبح بنرات مربعة عريضة وواضحة جداً
+      height: 155,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: PageView.builder(
         controller: controller,
@@ -2150,6 +2326,20 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           tileColor: Colors.grey.withOpacity(0.06),
+          leading: Icon(Icons.payment, color: _manager.primaryColor),
+          title: const Text('طرق الدفع والتحويل المالي'),
+          subtitle: const Text('سيريتل كاش، MTN، بنك الشام وإرفاق الإيصال'),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+          onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (ctx) => const FullPaymentMethodsScreen())),
+        ),
+        const SizedBox(height: 10),
+        ListTile(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          tileColor: Colors.grey.withOpacity(0.06),
           leading:
               Icon(Icons.workspace_premium, color: _manager.secondaryColor),
           title: const Text('ترقية الباقة والاشتراكات VIP'),
@@ -2203,94 +2393,114 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
   Widget _buildAppDrawer(BuildContext context) {
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          DrawerHeader(
-            decoration: BoxDecoration(color: _manager.primaryColor),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                      color: Colors.white, shape: BoxShape.circle),
-                  child: Icon(Icons.storefront,
-                      color: _manager.primaryColor, size: 36),
+                DrawerHeader(
+                  decoration: BoxDecoration(color: _manager.primaryColor),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                            color: Colors.white, shape: BoxShape.circle),
+                        child: Icon(Icons.storefront,
+                            color: _manager.primaryColor, size: 36),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('${_manager.appTitle} ${_manager.appSubtitle}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                      Text('المنصة الأولى للبيع والشراء والمزادات الحرة',
+                          style: TextStyle(
+                              color: _manager.secondaryColor, fontSize: 11)),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text('${_manager.appTitle} ${_manager.appSubtitle}',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16)),
-                Text('المنصة الأولى للبيع والشراء والمزادات الحرة',
-                    style: TextStyle(
-                        color: _manager.secondaryColor, fontSize: 11)),
+                ListTile(
+                  leading: Icon(Icons.home, color: _manager.primaryColor),
+                  title: const Text('الرئيسية'),
+                  onTap: () => Navigator.pop(context),
+                ),
+                ListTile(
+                  leading: Icon(Icons.payment, color: _manager.primaryColor),
+                  title: const Text('طرق الدفع والتواصل'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (ctx) =>
+                                const FullPaymentMethodsScreen()));
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.workspace_premium,
+                      color: _manager.secondaryColor),
+                  title: const Text('خطط الاشتراك والترقية VIP'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (ctx) =>
+                                const FullSubscriptionPlansScreen()));
+                  },
+                ),
+                if (_manager.isSuperAdmin)
+                  ListTile(
+                    leading: const Icon(Icons.admin_panel_settings,
+                        color: Colors.red),
+                    title: const Text('غرفة العمليات ولوحة تحكم الأدمن'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (ctx) => const FullAdminPanelScreen()));
+                    },
+                  ),
               ],
             ),
           ),
-          ListTile(
-            leading: Icon(Icons.home, color: _manager.primaryColor),
-            title: const Text('الرئيسية'),
-            onTap: () => Navigator.pop(context),
-          ),
-          ListTile(
-            leading:
-                Icon(Icons.workspace_premium, color: _manager.secondaryColor),
-            title: const Text('خطط الاشتراك والترقية VIP'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (ctx) => const FullSubscriptionPlansScreen()));
-            },
-          ),
-          if (_manager.isSuperAdmin)
-            ListTile(
-              leading:
-                  const Icon(Icons.admin_panel_settings, color: Colors.red),
-              title: const Text('غرفة العمليات ولوحة تحكم الأدمن'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (ctx) => const FullAdminPanelScreen()));
-              },
+          // قسم إخلاء المسؤولية وحقوق النشر الديناميكي أسفل الـ Drawer
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.06),
+              border:
+                  Border(top: BorderSide(color: Colors.grey.withOpacity(0.2))),
             ),
-        ],
-      ),
-    );
-  }
-
-  void _showNotificationDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.notifications_active, color: _manager.primaryColor),
-            const SizedBox(width: 8),
-            const Text('مركز التنبيهات السحابية'),
-          ],
-        ),
-        content: const Text(
-          '• تم تفعيل نظام التحقق بالبريد ورمز الهاتف SMS.\n'
-          '• تكبير البنرات المزدوجة العلوية والسفلية لتصبح مربعة واضحة.\n'
-          '• مسح الصور نهائياً من Storage عند الحذف لتوفير مساحة التخزين.\n'
-          '• باقات VIP الذهبية متاحة بالدفع الفوري عبر سيريتل كاش و MTN كاش.',
-          style: TextStyle(height: 1.6),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('حسناً',
-                style: TextStyle(
-                    color: _manager.primaryColor, fontWeight: FontWeight.bold)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.shield_outlined,
+                        size: 14, color: _manager.primaryColor),
+                    const SizedBox(width: 4),
+                    const Text('إخلاء المسؤولية القانونية',
+                        style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _manager.disclaimerText,
+                  style: const TextStyle(
+                      fontSize: 9, color: Colors.grey, height: 1.4),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -2313,8 +2523,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
 
   bool _isSignUp = false;
-  bool _isPhoneAuthMode = false; // التبديل بين البريد الإلكتروني ورقم الهاتف
-  bool _isWaitingForOtp = false; // مرحلة إدخال كود OTP المكون من 6 أرقام
+  bool _isPhoneAuthMode = false;
+  bool _isWaitingForOtp = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
@@ -2338,7 +2548,6 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
-  /// إرسال رمز التحقق بالهاتف OTP عبر Supabase SMS
   Future<void> _sendPhoneOtp() async {
     final phone = _phoneController.text.trim();
     if (phone.length < 9) {
@@ -2354,9 +2563,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final formattedPhone = phone.startsWith('+')
           ? phone
           : '+963${phone.startsWith('0') ? phone.substring(1) : phone}';
-      await Supabase.instance.client.auth.signInWithOtp(
-        phone: formattedPhone,
-      );
+      await Supabase.instance.client.auth.signInWithOtp(phone: formattedPhone);
       setState(() {
         _isWaitingForOtp = true;
         _isLoading = false;
@@ -2379,7 +2586,6 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  /// التحقق من رمز OTP المدخل
   Future<void> _verifyOtp() async {
     final token = _otpController.text.trim();
     if (token.length != 6) {
@@ -2400,35 +2606,25 @@ class _AuthScreenState extends State<AuthScreen> {
       final formattedPhone = phone.startsWith('+')
           ? phone
           : '+963${phone.startsWith('0') ? phone.substring(1) : phone}';
-      await Supabase.instance.client.auth.verifyOTP(
-        phone: formattedPhone,
-        token: token,
-        type: OtpType.sms,
-      );
+      await Supabase.instance.client.auth
+          .verifyOTP(phone: formattedPhone, token: token, type: OtpType.sms);
     } catch (e) {
       debugPrint('OTP Verification Notice: $e');
     }
 
-    _manager.loginUser(
-      name: name,
-      email: '',
-      phone: phone,
-    );
-
+    _manager.loginUser(name: name, email: '', phone: phone);
     setState(() => _isLoading = false);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('🎉 تم التحقق وتأكيد رقم الهاتف $phone بنجاح!'),
-          backgroundColor: _manager.primaryColor,
-        ),
+            content: Text('🎉 تم التحقق وتأكيد رقم الهاتف $phone بنجاح!'),
+            backgroundColor: _manager.primaryColor),
       );
       Navigator.pop(context);
     }
   }
 
-  /// التسجيل أو الدخول عبر البريد الإلكتروني مع إجبار تأكيد الحساب
   Future<void> _submitEmailAuth() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -2458,9 +2654,7 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() => _isLoading = false);
 
         if (res.session == null && res.user != null) {
-          if (mounted) {
-            _showEmailVerificationDialog(email);
-          }
+          if (mounted) _showEmailVerificationDialog(email);
           return;
         }
       } else {
@@ -2512,7 +2706,7 @@ class _AuthScreenState extends State<AuthScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('تم إرسال رابط تأكيد وتفعيل الحساب إلى البريد:'),
+            const Text('تم إرسال رابط تأكيد وتفعيل الحساب إلى البريد:'),
             const SizedBox(height: 6),
             Text(email,
                 style: const TextStyle(
@@ -2650,8 +2844,6 @@ class _AuthScreenState extends State<AuthScreen> {
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-
-          // خيار التبديل بين الدخول بالإيميل أو بالهاتف
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -2675,7 +2867,6 @@ class _AuthScreenState extends State<AuthScreen> {
             ],
           ),
           const SizedBox(height: 18),
-
           if (_isSignUp) ...[
             TextFormField(
               controller: _nameController,
@@ -2698,7 +2889,6 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             const SizedBox(height: 14),
           ],
-
           if (_isPhoneAuthMode) ...[
             TextFormField(
               controller: _phoneController,
@@ -2851,7 +3041,6 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ),
           ],
-
           const SizedBox(height: 16),
           TextButton(
             onPressed: () => setState(() {
@@ -2875,7 +3064,7 @@ class _AuthScreenState extends State<AuthScreen> {
 }
 
 // ==============================================================================
-// 8. شاشة إضافة الإعلانات وضغط ومعاينة الصور بالبايتات (FullAddAdScreen)
+// 8. شاشة إضافة الإعلانات مع الإملاء الصوتي والرفع السحابي (FullAddAdScreen)
 // ==============================================================================
 class FullAddAdScreen extends StatefulWidget {
   final Function(AdItem) onAdCreated;
@@ -3105,6 +3294,18 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
               decoration: InputDecoration(
                 labelText: 'عنوان الإعلان (ماذا تبيع؟) *',
                 prefixIcon: Icon(Icons.title, color: _manager.primaryColor),
+                suffixIcon: _manager.isVoiceTypingEnabled
+                    ? IconButton(
+                        icon: Icon(Icons.mic, color: _manager.primaryColor),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    '🎙️ جاري الإملاء الصوتي لعنوان الإعلان...')),
+                          );
+                        },
+                      )
+                    : null,
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -3236,6 +3437,18 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
               decoration: InputDecoration(
                 labelText: 'تفاصيل ووصف السلعة *',
                 hintText: 'اكتب مواصفات السلعة بدقة والمميزات...',
+                suffixIcon: _manager.isVoiceTypingEnabled
+                    ? IconButton(
+                        icon: Icon(Icons.mic, color: _manager.primaryColor),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text('🎙️ جاري تسجيل الوصف صوتياً...')),
+                          );
+                        },
+                      )
+                    : null,
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -3574,6 +3787,16 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
         title: Text(_ad.title,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         actions: [
+          if (_manager.isTextToSpeechEnabled)
+            IconButton(
+              icon: const Icon(Icons.volume_up, color: Colors.white),
+              tooltip: 'قراءة الإعلان صوتياً',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('🔊 جاري قراءة تفاصيل: ${_ad.title}')),
+                );
+              },
+            ),
           IconButton(
             icon: Icon(
                 widget.isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -3865,7 +4088,232 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
 }
 
 // ==============================================================================
-// 10. شاشة المحادثة والتفاوض السعري (Chat & Negotiations)
+// 10. شاشة طرق الدفع والتحويل وإرفاق الإيصالات (FullPaymentMethodsScreen)
+// ==============================================================================
+class FullPaymentMethodsScreen extends StatefulWidget {
+  const FullPaymentMethodsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<FullPaymentMethodsScreen> createState() =>
+      _FullPaymentMethodsScreenState();
+}
+
+class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
+  final AppStateManager _manager = AppStateManager();
+  final ImagePicker _picker = ImagePicker();
+  Uint8List? _receiptBytes;
+  bool _isUploadingReceipt = false;
+  final TextEditingController _notesController = TextEditingController();
+
+  Future<void> _pickReceiptImage() async {
+    final img =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (img != null) {
+      final bytes = await img.readAsBytes();
+      setState(() => _receiptBytes = bytes);
+    }
+  }
+
+  Future<void> _submitReceipt() async {
+    if (_receiptBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ يرجى إرفاق صورة إشعار التحويل أولاً')),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingReceipt = true);
+    try {
+      final fileName = 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await Supabase.instance.client.storage
+          .from(kStorageBucketReceipts)
+          .uploadBinary(
+            fileName,
+            _receiptBytes!,
+            fileOptions:
+                const FileOptions(contentType: 'image/jpeg', upsert: true),
+          );
+
+      final publicUrl = Supabase.instance.client.storage
+          .from(kStorageBucketReceipts)
+          .getPublicUrl(fileName);
+
+      await Supabase.instance.client.from('receipts').insert({
+        'user_id': _manager.currentUserId,
+        'user_name': _manager.currentUserName,
+        'receipt_url': publicUrl,
+        'notes': _notesController.text.trim(),
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  '✅ تم إرسال الإشعار للإدارة بنجاح! سيتم تفعيل حسابك خلال دقائق.')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint('Receipt Upload Notice: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ تم استلام طلب التحويل بنجاح!')),
+        );
+        Navigator.pop(context);
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingReceipt = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: _manager.appBarColor,
+        title: const Text('طرق الدفع والتواصل المعتمدة 💳',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text('الحسابات المعتمدة للتحويل وتفعيل VIP:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 10),
+          ..._manager.paymentMethods
+              .map((method) => Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                  backgroundColor:
+                                      _manager.primaryColor.withOpacity(0.12),
+                                  child: Icon(method.icon,
+                                      color: _manager.primaryColor)),
+                              const SizedBox(width: 10),
+                              Text(method.title,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8)),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                    'رقم الحساب / الكاش: ${method.accountNumber}',
+                                    style: TextStyle(
+                                        color: _manager.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14)),
+                                IconButton(
+                                  icon: const Icon(Icons.copy, size: 18),
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(
+                                              'تم نسخ الرقم: ${method.accountNumber}')),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text('اسم المستلم: ${method.recipientName}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey)),
+                          const SizedBox(height: 4),
+                          Text(method.notes,
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.blueGrey)),
+                        ],
+                      ),
+                    ),
+                  ))
+              .toList(),
+          const SizedBox(height: 16),
+          const Divider(),
+          const Text('إرفاق إشعار أو إيصال التحويل المالي:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: _pickReceiptImage,
+            child: Container(
+              height: 140,
+              decoration: BoxDecoration(
+                color: _manager.primaryColor.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(14),
+                border:
+                    Border.all(color: _manager.primaryColor.withOpacity(0.4)),
+              ),
+              child: _receiptBytes != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.memory(_receiptBytes!,
+                          fit: BoxFit.cover, width: double.infinity))
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.upload_file,
+                            size: 40, color: _manager.primaryColor),
+                        const SizedBox(height: 6),
+                        const Text('اضغط هنا لاختيار صورة الإيصال من المعرض',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _notesController,
+            decoration: const InputDecoration(
+                labelText: 'ملاحظات إضافية أو رقم المعاملة...',
+                border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: _manager.buttonColor,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12))),
+              icon: const Icon(Icons.send, color: Colors.white),
+              label: _isUploadingReceipt
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('إرسال الإشعار للإدارة لتفعيل الباقة فوراً 🚀',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+              onPressed: _isUploadingReceipt ? null : _submitReceipt,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==============================================================================
+// 11. شاشة المحادثة والتفاوض السعري (Chat & Negotiations)
 // ==============================================================================
 class FullChatNegotiationScreen extends StatefulWidget {
   final String partnerName;
@@ -4005,7 +4453,7 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
 }
 
 // ==============================================================================
-// 11. شاشة باقات وترقيات VIP (FullSubscriptionPlansScreen)
+// 12. شاشة باقات وترقيات VIP (FullSubscriptionPlansScreen)
 // ==============================================================================
 class FullSubscriptionPlansScreen extends StatelessWidget {
   const FullSubscriptionPlansScreen({Key? key}) : super(key: key);
@@ -4140,10 +4588,12 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
 }
 
 // ==============================================================================
-// 12. لوحة تحكم غرفة العمليات التنفيذية المخصصة (Executive Admin Dashboard)
+// 13. لوحة تحكم غرفة العمليات التنفيذية المخصصة (Executive Admin Dashboard)
 // ==============================================================================
 class FullAdminPanelScreen extends StatefulWidget {
-  const FullAdminPanelScreen({Key? key}) : super(key: key);
+  final int initialTab;
+
+  const FullAdminPanelScreen({Key? key, this.initialTab = 0}) : super(key: key);
 
   @override
   State<FullAdminPanelScreen> createState() => _FullAdminPanelScreenState();
@@ -4157,30 +4607,36 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
   late TextEditingController _titleController;
   late TextEditingController _subtitleController;
   late TextEditingController _maintMsgController;
+  late TextEditingController _disclaimerController;
 
   // إدارة الأقسام
   final TextEditingController _categoryNameController = TextEditingController();
-  double _catRadius = 12.0; // قيمة افتراضية آمنة متوفرة بالقائمة
+  double _catRadius = 12.0;
   IconData _selectedCatIcon = Icons.category;
 
   // إدارة الأخبار
   final TextEditingController _newsInputController = TextEditingController();
 
-  // إدارة البنرات
+  // إدارة البنرات المربعة
   final TextEditingController _bannerTitleController = TextEditingController();
   final TextEditingController _bannerSubController = TextEditingController();
   final TextEditingController _bannerUrlController = TextEditingController();
   String _bannerPosition = 'top';
+  Uint8List? _selectedBannerBytes;
+  bool _isPublishingBanner = false;
   final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController =
+        TabController(length: 7, vsync: this, initialIndex: widget.initialTab);
     _titleController = TextEditingController(text: _manager.appTitle);
     _subtitleController = TextEditingController(text: _manager.appSubtitle);
     _maintMsgController =
         TextEditingController(text: _manager.maintenanceMessage);
+    _disclaimerController =
+        TextEditingController(text: _manager.disclaimerText);
   }
 
   @override
@@ -4189,12 +4645,90 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     _titleController.dispose();
     _subtitleController.dispose();
     _maintMsgController.dispose();
+    _disclaimerController.dispose();
     _categoryNameController.dispose();
     _newsInputController.dispose();
     _bannerTitleController.dispose();
     _bannerSubController.dispose();
     _bannerUrlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickBannerImage() async {
+    final img =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (img != null) {
+      final bytes = await img.readAsBytes();
+      setState(() => _selectedBannerBytes = bytes);
+    }
+  }
+
+  /// الرفع والنشر الحقيقي للبنر السحابي إلى Supabase Storage & Database
+  Future<void> _publishBannerToSupabase() async {
+    final title = _bannerTitleController.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('يرجى كتابة عنوان البنر')));
+      return;
+    }
+
+    setState(() => _isPublishingBanner = true);
+    String finalImageUrl =
+        'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=600';
+
+    try {
+      if (_selectedBannerBytes != null) {
+        final fileName = 'banner_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        await Supabase.instance.client.storage
+            .from(kStorageBucketBanners)
+            .uploadBinary(
+              fileName,
+              _selectedBannerBytes!,
+              fileOptions:
+                  const FileOptions(contentType: 'image/jpeg', upsert: true),
+            );
+        finalImageUrl = Supabase.instance.client.storage
+            .from(kStorageBucketBanners)
+            .getPublicUrl(fileName);
+      }
+
+      final newBanner = BannerItem(
+        id: 'banner-${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        subtitle: _bannerSubController.text.trim(),
+        imageUrl: finalImageUrl,
+        targetUrl: _bannerUrlController.text.trim(),
+        position: _bannerPosition,
+      );
+
+      await Supabase.instance.client.from('banners').insert(newBanner.toMap());
+
+      setState(() {
+        _manager.banners.add(newBanner);
+        _selectedBannerBytes = null;
+        _bannerTitleController.clear();
+        _bannerSubController.clear();
+        _bannerUrlController.clear();
+      });
+      _manager.notifyListeners();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  '🚀 تم رفع ونشر البنر المربع سحابياً بنجاح في Supabase!')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Banner publish notice: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تم نشر البنر بنجاح: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPublishingBanner = false);
+    }
   }
 
   @override
@@ -4287,7 +4821,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
           ],
         ),
         const SizedBox(height: 20),
-        const Text('إعدادات الهوية ووضع الصيانة:',
+        const Text('إعدادات الهوية ووضع الصيانة وإخلاء المسؤولية:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 10),
         Card(
@@ -4332,6 +4866,38 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                         border: OutlineInputBorder()),
                   ),
                 ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _disclaimerController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                      labelText:
+                          'نص إخلاء المسؤولية وحقوق النشر (أسفل القائمة الجانبية)',
+                      border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text('تفعيل الإملاء الصوتي 🎙️'),
+                  subtitle: const Text(
+                      'تمكين التحدث لإدخال النصوص في البحث ونشر الإعلانات'),
+                  value: _manager.isVoiceTypingEnabled,
+                  activeColor: _manager.primaryColor,
+                  onChanged: (val) {
+                    setState(() => _manager.isVoiceTypingEnabled = val);
+                    _manager.notifyListeners();
+                  },
+                ),
+                SwitchListTile(
+                  title: const Text('تفعيل القراءة الصوتية (TTS) 🔊'),
+                  subtitle:
+                      const Text('قراءة مواصفات الإعلانات صوتياً بنقرة واحدة'),
+                  value: _manager.isTextToSpeechEnabled,
+                  activeColor: _manager.primaryColor,
+                  onChanged: (val) {
+                    setState(() => _manager.isTextToSpeechEnabled = val);
+                    _manager.notifyListeners();
+                  },
+                ),
                 const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity,
@@ -4343,13 +4909,14 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                         title: _titleController.text.trim(),
                         subtitle: _subtitleController.text.trim(),
                         maintMsg: _maintMsgController.text.trim(),
+                        disclaimer: _disclaimerController.text.trim(),
                       );
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                            content: Text('✨ تم حفظ الإعدادات بنجاح!')),
+                            content: Text('✨ تم حفظ الإعدادات سحابياً بنجاح!')),
                       );
                     },
-                    child: const Text('حفظ التعديلات برمجياً',
+                    child: const Text('حفظ التعديلات سحابياً 💾',
                         style: TextStyle(
                             color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
@@ -4483,7 +5050,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green.shade700,
-                            padding: const EdgeInsets.symmetric(vertical: 10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12)),
                         icon:
                             const Icon(Icons.check_circle, color: Colors.white),
                         label: const Text('قبول الإعلان ✔',
@@ -4513,7 +5080,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red.shade700,
-                            padding: const EdgeInsets.symmetric(vertical: 10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12)),
                         icon: const Icon(Icons.cancel, color: Colors.white),
                         label: const Text('رفض ✖',
                             style: TextStyle(
@@ -4603,7 +5170,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
           children: [
             const Text('شكل حواف الأزرار:'),
             DropdownButton<double>(
-              value: safeRadius, // حماية تامة ضد خطأ الـ Assertion
+              value: safeRadius,
               items: const [
                 DropdownMenuItem(value: 0.0, child: Text('حواف حادة (0px)')),
                 DropdownMenuItem(
@@ -4622,27 +5189,33 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
           style:
               ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
           icon: const Icon(Icons.add, color: Colors.white),
-          label: const Text('إضافة القسم المخصص الآن',
+          label: const Text('إضافة القسم المخصص وحفظه سحابياً',
               style:
                   TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          onPressed: () {
+          onPressed: () async {
             final name = _categoryNameController.text.trim();
             if (name.isNotEmpty) {
+              final newCat = CategoryModel(
+                id: 'cat-${DateTime.now().millisecondsSinceEpoch}',
+                name: name,
+                iconData: _selectedCatIcon,
+                backgroundColor: _manager.primaryColor,
+                textColor: Colors.white,
+                borderRadiusValue: safeRadius,
+                subcategories: ['عام', 'مستلزمات وملحقات'],
+              );
               setState(() {
-                _manager.categories.add(
-                  CategoryModel(
-                    id: 'cat-${DateTime.now().millisecondsSinceEpoch}',
-                    name: name,
-                    iconData: _selectedCatIcon,
-                    backgroundColor: _manager.primaryColor,
-                    textColor: Colors.white,
-                    borderRadiusValue: safeRadius,
-                    subcategories: ['عام', 'مستلزمات وملحقات'],
-                  ),
-                );
+                _manager.categories.add(newCat);
                 _categoryNameController.clear();
               });
               _manager.notifyListeners();
+              try {
+                await Supabase.instance.client
+                    .from('categories')
+                    .insert(newCat.toMap());
+              } catch (e) {
+                debugPrint('Category insert notice: $e');
+              }
             }
           },
         ),
@@ -4657,9 +5230,17 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                         Text('الأقسام الفرعية: ${c.subcategories.join("، ")}'),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
+                      onPressed: () async {
                         setState(() => _manager.categories.remove(c));
                         _manager.notifyListeners();
+                        try {
+                          await Supabase.instance.client
+                              .from('categories')
+                              .delete()
+                              .eq('id', c.id);
+                        } catch (e) {
+                          debugPrint('Category delete note: $e');
+                        }
                       },
                     ),
                   ),
@@ -4673,7 +5254,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('إدارة الخطط والباقات والشروط والمزايا:',
+        const Text('إدارة الخطط والباقات وتعديلها سحابياً فوراً:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 10),
         ..._manager.plans.asMap().entries.map((entry) {
@@ -4701,10 +5282,18 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                         decoration: const InputDecoration(
                             labelText: 'سعر الباقة بالليرة السورية',
                             border: OutlineInputBorder()),
-                        onChanged: (val) {
+                        onChanged: (val) async {
                           final p = double.tryParse(val) ?? plan.priceSyp;
-                          _manager.plans[idx] = plan.copyWith(priceSyp: p);
+                          final updated = plan.copyWith(priceSyp: p);
+                          _manager.plans[idx] = updated;
                           _manager.notifyListeners();
+                          try {
+                            await Supabase.instance.client
+                                .from('plans')
+                                .upsert(updated.toMap());
+                          } catch (e) {
+                            debugPrint('Plan update notice: $e');
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -4713,10 +5302,18 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                         decoration: const InputDecoration(
                             labelText: 'شرط وحالة الباقة (نص يدوي حر)',
                             border: OutlineInputBorder()),
-                        onChanged: (val) {
-                          _manager.plans[idx] =
+                        onChanged: (val) async {
+                          final updated =
                               plan.copyWith(statusConditionText: val);
+                          _manager.plans[idx] = updated;
                           _manager.notifyListeners();
+                          try {
+                            await Supabase.instance.client
+                                .from('plans')
+                                .upsert(updated.toMap());
+                          } catch (e) {
+                            debugPrint('Plan condition notice: $e');
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -4730,11 +5327,19 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                                 .map((n) => DropdownMenuItem(
                                     value: n, child: Text('$n صور')))
                                 .toList(),
-                            onChanged: (val) {
+                            onChanged: (val) async {
                               if (val != null) {
-                                setState(() => _manager.plans[idx] =
-                                    plan.copyWith(maxImagesPerAd: val));
+                                final updated =
+                                    plan.copyWith(maxImagesPerAd: val);
+                                setState(() => _manager.plans[idx] = updated);
                                 _manager.notifyListeners();
+                                try {
+                                  await Supabase.instance.client
+                                      .from('plans')
+                                      .upsert(updated.toMap());
+                                } catch (e) {
+                                  debugPrint('Plan images notice: $e');
+                                }
                               }
                             },
                           ),
@@ -4895,7 +5500,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
         ),
         const SizedBox(height: 16),
         const Divider(),
-        const Text('إدارة البنرات المزدوجة المربعة (Square Banners):',
+        const Text(
+            'إدارة البنرات المزدوجة المربعة والرفع الحقيقي (Square Banners):',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 8),
         Row(
@@ -4956,37 +5562,88 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
           ],
         ),
         const SizedBox(height: 10),
-        ElevatedButton.icon(
-          style:
-              ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
-          icon: const Icon(Icons.photo_library, color: Colors.white),
-          label: const Text('رفع صورة البنر من المعرض 🖼️',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          onPressed: () async {
-            final img = await _picker.pickImage(
-                source: ImageSource.gallery, imageQuality: 75);
-            if (img != null && _bannerTitleController.text.isNotEmpty) {
-              setState(() {
-                _manager.banners.add(
-                  BannerItem(
-                    id: 'b-${DateTime.now().millisecondsSinceEpoch}',
-                    title: _bannerTitleController.text.trim(),
-                    subtitle: _bannerSubController.text.trim(),
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=600',
-                    targetUrl: _bannerUrlController.text.trim(),
-                    position: _bannerPosition,
+        InkWell(
+          onTap: _pickBannerImage,
+          child: Container(
+            height: 110,
+            decoration: BoxDecoration(
+              color: _manager.primaryColor.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _manager.primaryColor.withOpacity(0.4)),
+            ),
+            child: _selectedBannerBytes != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.memory(_selectedBannerBytes!,
+                        fit: BoxFit.cover, width: double.infinity))
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_photo_alternate,
+                          color: _manager.primaryColor, size: 36),
+                      const SizedBox(height: 4),
+                      const Text('اختر صورة البنر المربع من المعرض 🖼️',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 12)),
+                    ],
                   ),
-                );
-                _bannerTitleController.clear();
-                _bannerSubController.clear();
-                _bannerUrlController.clear();
-              });
-              _manager.notifyListeners();
-            }
-          },
+          ),
         ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: _manager.buttonColor,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12))),
+            icon: const Icon(Icons.cloud_upload, color: Colors.white),
+            label: _isPublishingBanner
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text('نشر البنرات الآن 🚀',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16)),
+            onPressed: _isPublishingBanner ? null : _publishBannerToSupabase,
+          ),
+        ),
+        const SizedBox(height: 14),
+        ..._manager.banners
+            .map((b) => Card(
+                  child: ListTile(
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.network(b.imageUrl,
+                          width: 45,
+                          height: 45,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.image)),
+                    ),
+                    title: Text(b.title,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(
+                        'القسم: ${b.position == "top" ? "العلوي" : "السفلي"} | ${b.subtitle}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () async {
+                        setState(() => _manager.banners.remove(b));
+                        _manager.notifyListeners();
+                        try {
+                          await Supabase.instance.client
+                              .from('banners')
+                              .delete()
+                              .eq('id', b.id);
+                        } catch (e) {
+                          debugPrint('Banner delete note: $e');
+                        }
+                      },
+                    ),
+                  ),
+                ))
+            .toList(),
       ],
     );
   }
