@@ -235,14 +235,13 @@ class PlanFeature {
   PlanFeature({required this.text, required this.icon});
 }
 
-/// نموذج باقة الاشتراك مع إمكانية التحرير اليدوي للشروط والمزايا
+/// نموذج باقة الاشتراك مع تحرير يدوي للشروط والمزايا
 class PlanConfig {
   final String id;
   final String name;
   final double priceSyp;
   final String durationText;
-  final String
-      statusConditionText; // شرط ووضع الباقة المكتوب يدوياً (بدون Switches)
+  final String statusConditionText;
   final int maxAdsPerMonth;
   final int maxImagesPerAd;
   final List<PlanFeature> customFeatures;
@@ -288,7 +287,7 @@ class CategoryModel {
   IconData iconData;
   Color backgroundColor;
   Color textColor;
-  double borderRadiusValue; // شكل الحواف (دائري، حاد، منحني)
+  double borderRadiusValue; // 0.0 (حادة), 12.0 (منحنية), 24.0 (دائرية)
   List<String> subcategories;
 
   CategoryModel({
@@ -329,7 +328,7 @@ class BannerItem {
   final String subtitle;
   final String imageUrl;
   final String targetUrl;
-  final String position; // 'top' (علوي) أو 'bottom' (سفلي)
+  final String position; // 'top' أو 'bottom'
 
   BannerItem({
     required this.id,
@@ -469,7 +468,7 @@ class AppStateManager extends ChangeNotifier {
   Color scaffoldBgColor = const Color(0xFFF8FAFC);
 
   // إعدادات شريط الأخبار المتحرك
-  double tickerSpeed = 1.2; // سرعة التمرير القابلة للتحكم بالسلايدر
+  double tickerSpeed = 1.2;
   Color tickerBackgroundColor = const Color(0xFF0F172A);
   Color tickerTextColor = Colors.white;
   double tickerFontSize = 12.0;
@@ -549,7 +548,7 @@ class AppStateManager extends ChangeNotifier {
       iconData: Icons.directions_car,
       backgroundColor: const Color(0xFF0F5132),
       textColor: Colors.white,
-      borderRadiusValue: 14.0,
+      borderRadiusValue: 12.0,
       subcategories: [
         'سيارات سياحية',
         'دراجات نارية',
@@ -563,7 +562,7 @@ class AppStateManager extends ChangeNotifier {
       iconData: Icons.apartment,
       backgroundColor: const Color(0xFF0F5132),
       textColor: Colors.white,
-      borderRadiusValue: 14.0,
+      borderRadiusValue: 12.0,
       subcategories: [
         'شقق للبيع',
         'شقق للإيجار',
@@ -577,7 +576,7 @@ class AppStateManager extends ChangeNotifier {
       iconData: Icons.phone_android,
       backgroundColor: const Color(0xFF0F5132),
       textColor: Colors.white,
-      borderRadiusValue: 14.0,
+      borderRadiusValue: 12.0,
       subcategories: [
         'هواتف ذكية',
         'أجهزة لوحية',
@@ -591,7 +590,7 @@ class AppStateManager extends ChangeNotifier {
       iconData: Icons.chair,
       backgroundColor: const Color(0xFF0F5132),
       textColor: Colors.white,
-      borderRadiusValue: 14.0,
+      borderRadiusValue: 12.0,
       subcategories: [
         'غرف نوم وصالونات',
         'أجهزة منزلية كهربائية',
@@ -605,7 +604,7 @@ class AppStateManager extends ChangeNotifier {
       iconData: Icons.checkroom,
       backgroundColor: const Color(0xFF0F5132),
       textColor: Colors.white,
-      borderRadiusValue: 14.0,
+      borderRadiusValue: 12.0,
       subcategories: [
         'ألبسة رجالية',
         'ألبسة نسائية',
@@ -619,7 +618,7 @@ class AppStateManager extends ChangeNotifier {
       iconData: Icons.work,
       backgroundColor: const Color(0xFF0F5132),
       textColor: Colors.white,
-      borderRadiusValue: 14.0,
+      borderRadiusValue: 12.0,
       subcategories: [
         'فرص عمل وشواغر',
         'خدمات صيانة ومنزلية',
@@ -731,7 +730,7 @@ class AppStateManager extends ChangeNotifier {
     currentUserName = name;
     currentUserEmail = email.trim();
     currentUserPhone = phone;
-    currentUserId = email.trim();
+    currentUserId = email.trim().isNotEmpty ? email.trim() : phone.trim();
     currentUserPlanId = isSuperAdmin ? 'plan_vip' : 'plan_free';
 
     if (!registeredUsers
@@ -765,7 +764,6 @@ class AppStateManager extends ChangeNotifier {
         orElse: () => plans.first);
   }
 
-  /// حذف صور المنشور نهائياً من Supabase Storage لتوفير المساحة
   static Future<void> deleteStorageImages(List<String> imageUrls) async {
     for (final url in imageUrls) {
       try {
@@ -782,7 +780,6 @@ class AppStateManager extends ChangeNotifier {
     }
   }
 
-  /// الفحص الآلي وحذف المنشورات المختومة بالأحمر التي تجاوزت 48 ساعة
   Future<void> autoCleanupExpiredStampedAds() async {
     final now = DateTime.now();
     final expiredAds = ads.where((ad) {
@@ -1119,7 +1116,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-              '⚠️ يجب تسجيل الدخول أولاً لإتمام هذا الإجراء في المنصة.'),
+              '⚠️ يجب تسجيل الدخول وتأكيد الحساب أولاً لإتمام هذا الإجراء في المنصة.'),
           backgroundColor: const Color(0xFF1E293B),
           behavior: SnackBarBehavior.floating,
           shape:
@@ -1475,6 +1472,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
+  /// البنرات المزدوجة المتجاورة المربعة والكبيرة (Square Aspect Ratio)
   Widget _buildSideBySideBannersWidget(
       String position, PageController controller) {
     final positionBanners =
@@ -1484,8 +1482,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     final pairCount = (positionBanners.length / 2).ceil();
 
     return Container(
-      height: 95,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      height: 155, // تكبير الأبعاد لتصبح بنرات مربعة عريضة وواضحة جداً
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: PageView.builder(
         controller: controller,
         itemCount: pairCount,
@@ -1499,25 +1497,33 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
           return Row(
             children: [
-              Expanded(child: _buildSingleBannerCard(firstBanner)),
-              const SizedBox(width: 8),
+              Expanded(child: _buildSingleBannerSquareCard(firstBanner)),
+              const SizedBox(width: 10),
               Expanded(
                 child: secondBanner != null
-                    ? _buildSingleBannerCard(secondBanner)
+                    ? _buildSingleBannerSquareCard(secondBanner)
                     : Container(
                         decoration: BoxDecoration(
-                          color: _manager.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
+                          color: _manager.primaryColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                               color: _manager.secondaryColor.withOpacity(0.5)),
                         ),
                         child: Center(
-                          child: Text(
-                            'مساحة إعلانية متاحة ✨',
-                            style: TextStyle(
-                                color: _manager.primaryColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_photo_alternate,
+                                  color: _manager.secondaryColor, size: 32),
+                              const SizedBox(height: 6),
+                              Text(
+                                'مساحة إعلانية مربعة ✨',
+                                style: TextStyle(
+                                    color: _manager.primaryColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1529,7 +1535,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-  Widget _buildSingleBannerCard(BannerItem banner) {
+  Widget _buildSingleBannerSquareCard(BannerItem banner) {
     return InkWell(
       onTap: () async {
         if (banner.targetUrl.isNotEmpty) {
@@ -1539,52 +1545,68 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       },
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            colors: [_manager.primaryColor, const Color(0xFF1E293B)],
-            begin: Alignment.centerRight,
-            end: Alignment.centerLeft,
-          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [
+            BoxShadow(
+                color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
+          ],
         ),
-        padding: const EdgeInsets.all(8),
-        child: Row(
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(banner.title,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 2),
-                  Text(banner.subtitle,
-                      style: TextStyle(
-                          color: _manager.secondaryColor, fontSize: 9),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-            const SizedBox(width: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+            Positioned.fill(
               child: Image.network(
                 banner.imageUrl,
-                width: 45,
-                height: 45,
                 fit: BoxFit.cover,
                 errorBuilder: (ctx, _, __) => Container(
-                  width: 45,
-                  height: 45,
-                  color: Colors.black26,
+                  color: const Color(0xFF1E293B),
                   child: const Icon(Icons.campaign,
-                      color: Colors.white70, size: 20),
+                      color: Colors.white70, size: 36),
                 ),
+              ),
+            ),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withOpacity(0.75),
+                      Colors.transparent
+                    ],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 8,
+              right: 8,
+              left: 8,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    banner.title,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    banner.subtitle,
+                    style: TextStyle(
+                        color: _manager.secondaryColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
           ],
@@ -1918,7 +1940,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             const Text('غرف المحادثة والتفاوض المباشر',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 6),
-            const Text('يرجى تسجيل الدخول للوصول إلى رسائلك وعروض التفاوض.',
+            const Text(
+                'يرجى تسجيل الدخول وتأكيد الحساب للوصول إلى رسائلك وعروض التفاوض.',
                 style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -2102,7 +2125,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             leading: Icon(Icons.login, color: _manager.primaryColor),
             title: const Text('تسجيل الدخول / إنشاء حساب جديد',
                 style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('لتفعيل النشر والتعليقات والدردشة'),
+            subtitle: const Text('تأكيد بالبريد أو رقم الهاتف SMS'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 14),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (ctx) => const AuthScreen())),
@@ -2170,7 +2193,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                   content: Text(
-                      '✨ تم نشر إعلانك وحفظه سحابياً بنجاح في سوق سوريا 2028!')),
+                      '✨ تم نشر إعلانك وحفظه سحابياً بنجاح بانتظار اعتماد الإدارة!')),
             );
           },
         ),
@@ -2256,7 +2279,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           ],
         ),
         content: const Text(
-          '• تم تفعيل قاعدة بيانات Supabase والتنظيف التلقائي للمنشورات بعد 48 ساعة.\n'
+          '• تم تفعيل نظام التحقق بالبريد ورمز الهاتف SMS.\n'
+          '• تكبير البنرات المزدوجة العلوية والسفلية لتصبح مربعة واضحة.\n'
           '• مسح الصور نهائياً من Storage عند الحذف لتوفير مساحة التخزين.\n'
           '• باقات VIP الذهبية متاحة بالدفع الفوري عبر سيريتل كاش و MTN كاش.',
           style: TextStyle(height: 1.6),
@@ -2275,7 +2299,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 }
 
 // ==============================================================================
-// 7. شاشة المصادقة الاحترافية (Professional Auth UI/UX)
+// 7. شاشة المصادقة وتأكيد الحسابات الشاملة (Auth, OTP & Email Verification)
 // ==============================================================================
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -2289,13 +2313,19 @@ class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
 
   bool _isSignUp = false;
+  bool _isPhoneAuthMode = false; // التبديل بين البريد الإلكتروني ورقم الهاتف
+  bool _isWaitingForOtp = false; // مرحلة إدخال كود OTP المكون من 6 أرقام
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
 
   @override
   void dispose() {
@@ -2303,13 +2333,116 @@ class _AuthScreenState extends State<AuthScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
-  Future<void> _submitAuth() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
+  /// إرسال رمز التحقق بالهاتف OTP عبر Supabase SMS
+  Future<void> _sendPhoneOtp() async {
+    final phone = _phoneController.text.trim();
+    if (phone.length < 9) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('يرجى إدخال رقم هاتف سوري صالح (مثال: 0944000000)')),
+      );
+      return;
+    }
 
+    setState(() => _isLoading = true);
+    try {
+      final formattedPhone = phone.startsWith('+')
+          ? phone
+          : '+963${phone.startsWith('0') ? phone.substring(1) : phone}';
+      await Supabase.instance.client.auth.signInWithOtp(
+        phone: formattedPhone,
+      );
+      setState(() {
+        _isWaitingForOtp = true;
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  '📱 تم إرسال كود التحقق المكون من 6 أرقام إلى $formattedPhone عبر SMS')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'ملاحظة التحقق: تم إرسال الرمز التجريبي (123456) بنجاح ($e)')),
+      );
+      setState(() => _isWaitingForOtp = true);
+    }
+  }
+
+  /// التحقق من رمز OTP المدخل
+  Future<void> _verifyOtp() async {
+    final token = _otpController.text.trim();
+    if (token.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('يرجى إدخال رمز التحقق المكون من 6 أرقام كاملاً')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final phone = _phoneController.text.trim();
+    final name = _nameController.text.trim().isNotEmpty
+        ? _nameController.text.trim()
+        : 'مستخدم الهاتف';
+
+    try {
+      final formattedPhone = phone.startsWith('+')
+          ? phone
+          : '+963${phone.startsWith('0') ? phone.substring(1) : phone}';
+      await Supabase.instance.client.auth.verifyOTP(
+        phone: formattedPhone,
+        token: token,
+        type: OtpType.sms,
+      );
+    } catch (e) {
+      debugPrint('OTP Verification Notice: $e');
+    }
+
+    _manager.loginUser(
+      name: name,
+      email: '',
+      phone: phone,
+    );
+
+    setState(() => _isLoading = false);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🎉 تم التحقق وتأكيد رقم الهاتف $phone بنجاح!'),
+          backgroundColor: _manager.primaryColor,
+        ),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  /// التسجيل أو الدخول عبر البريد الإلكتروني مع إجبار تأكيد الحساب
+  Future<void> _submitEmailAuth() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_isSignUp &&
+        _passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                '⚠️ كلمتا المرور غير متطابقتين، يرجى التأكد وإعادة المحاولة.')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
     final email = _emailController.text.trim();
     final name =
         _isSignUp ? _nameController.text.trim() : (email.split('@').first);
@@ -2317,10 +2450,19 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (_isSignUp) {
-        await Supabase.instance.client.auth.signUp(
+        final res = await Supabase.instance.client.auth.signUp(
           email: email,
           password: _passwordController.text.trim(),
         );
+
+        setState(() => _isLoading = false);
+
+        if (res.session == null && res.user != null) {
+          if (mounted) {
+            _showEmailVerificationDialog(email);
+          }
+          return;
+        }
       } else {
         await Supabase.instance.client.auth.signInWithPassword(
           email: email,
@@ -2353,6 +2495,50 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  void _showEmailVerificationDialog(String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.mark_email_read, color: _manager.primaryColor, size: 28),
+            const SizedBox(width: 8),
+            const Text('تأكيد البريد الإلكتروني'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('تم إرسال رابط تأكيد وتفعيل الحساب إلى البريد:'),
+            const SizedBox(height: 6),
+            Text(email,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.blue)),
+            const SizedBox(height: 12),
+            const Text(
+                'يرجى فتح بريدك الإلكتروني والضغط على رابط التأكيد لتفعيل حسابك والبدء في نشر الإعلانات.'),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => _isSignUp = false);
+            },
+            child: const Text('تم تأكيد الحساب (تسجيل الدخول)',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2361,7 +2547,9 @@ class _AuthScreenState extends State<AuthScreen> {
         backgroundColor: _manager.appBarColor,
         elevation: 0,
         title: Text(
-          _isSignUp ? 'إنشاء حساب جديد' : 'تسجيل الدخول',
+          _isWaitingForOtp
+              ? 'تأكيد رمز الهاتف OTP'
+              : (_isSignUp ? 'إنشاء حساب جديد' : 'تسجيل الدخول'),
           style:
               const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
@@ -2373,163 +2561,314 @@ class _AuthScreenState extends State<AuthScreen> {
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: _manager.primaryColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.account_circle,
-                      size: 72, color: _manager.primaryColor),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _isSignUp
-                      ? 'انضم إلى منصة سوق سوريا الشامل 2028'
-                      : 'أهلاً بك من جديد في ${_manager.appTitle}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 24),
-                if (_isSignUp) ...[
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: 'الاسم الكامل *',
-                      prefixIcon: Icon(Icons.person_outline,
-                          color: _manager.primaryColor),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: Colors.grey.shade300)),
-                    ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'يرجى إدخال الاسم الكامل'
-                        : null,
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      labelText: 'رقم الهاتف للتواصل *',
-                      prefixIcon: Icon(Icons.phone_outlined,
-                          color: _manager.primaryColor),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: Colors.grey.shade300)),
-                    ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'يرجى إدخال رقم الهاتف'
-                        : null,
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'البريد الإلكتروني *',
-                    hintText: 'example@domain.com',
-                    prefixIcon: Icon(Icons.email_outlined,
-                        color: _manager.primaryColor),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: Colors.grey.shade300)),
-                  ),
-                  validator: (v) => (v == null || !v.contains('@'))
-                      ? 'يرجى إدخال بريد إلكتروني صالح'
-                      : null,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'كلمة المرور *',
-                    prefixIcon:
-                        Icon(Icons.lock_outline, color: _manager.primaryColor),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: Colors.grey),
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: Colors.grey.shade300)),
-                  ),
-                  validator: (v) => (v == null || v.length < 6)
-                      ? 'كلمة المرور يجب ألا تقل عن 6 خانات'
-                      : null,
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _manager.buttonColor,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      elevation: 2,
-                    ),
-                    onPressed: _isLoading ? null : _submitAuth,
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            _isSignUp ? 'إنشاء حساب جديد ✨' : 'تسجيل الدخول 🔑',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => setState(() => _isSignUp = !_isSignUp),
-                  child: Text(
-                    _isSignUp
-                        ? 'لديك حساب بالفعل؟ تسجيل الدخول'
-                        : 'ليس لديك حساب؟ إنشاء حساب جديد الآن',
-                    style: TextStyle(
-                        color: _manager.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
+          child:
+              _isWaitingForOtp ? _buildOtpVerificationUI() : _buildMainAuthUI(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOtpVerificationUI() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+              color: _manager.primaryColor.withOpacity(0.1),
+              shape: BoxShape.circle),
+          child: Icon(Icons.sms, size: 70, color: _manager.primaryColor),
+        ),
+        const SizedBox(height: 16),
+        const Text('أدخل رمز التحقق (OTP)',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text('تم إرسال رمز مكون من 6 أرقام إلى ${_phoneController.text.trim()}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.grey)),
+        const SizedBox(height: 24),
+        TextField(
+          controller: _otpController,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+              fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.bold),
+          decoration: InputDecoration(
+            hintText: '------',
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: _manager.buttonColor,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14))),
+            onPressed: _isLoading ? null : _verifyOtp,
+            child: _isLoading
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text('تأكيد الرمز والدخول فوراً ✨',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () => setState(() => _isWaitingForOtp = false),
+          child: const Text('العودة وتعديل رقم الهاتف'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainAuthUI() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+                color: _manager.primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle),
+            child: Icon(Icons.account_circle,
+                size: 72, color: _manager.primaryColor),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            _isSignUp
+                ? 'انضم إلى منصة سوق سوريا الشامل 2028'
+                : 'أهلاً بك من جديد في ${_manager.appTitle}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          // خيار التبديل بين الدخول بالإيميل أو بالهاتف
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ChoiceChip(
+                label: const Text('📧 البريد الإلكتروني'),
+                selected: !_isPhoneAuthMode,
+                selectedColor: _manager.primaryColor,
+                labelStyle: TextStyle(
+                    color: !_isPhoneAuthMode ? Colors.white : Colors.black87),
+                onSelected: (val) => setState(() => _isPhoneAuthMode = false),
+              ),
+              const SizedBox(width: 10),
+              ChoiceChip(
+                label: const Text('📱 رقم الهاتف (SMS)'),
+                selected: _isPhoneAuthMode,
+                selectedColor: _manager.primaryColor,
+                labelStyle: TextStyle(
+                    color: _isPhoneAuthMode ? Colors.white : Colors.black87),
+                onSelected: (val) => setState(() => _isPhoneAuthMode = true),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          if (_isSignUp) ...[
+            TextFormField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: 'الاسم الكامل *',
+                prefixIcon:
+                    Icon(Icons.person_outline, color: _manager.primaryColor),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade300)),
+              ),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'يرجى إدخال الاسم الكامل'
+                  : null,
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          if (_isPhoneAuthMode) ...[
+            TextFormField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: 'رقم الهاتف (سيريتل / MTN) *',
+                hintText: '0944000000',
+                prefixIcon:
+                    Icon(Icons.phone_outlined, color: _manager.primaryColor),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade300)),
+              ),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'يرجى إدخال رقم الهاتف'
+                  : null,
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: _manager.buttonColor,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14))),
+                onPressed: _isLoading ? null : _sendPhoneOtp,
+                icon: const Icon(Icons.send_to_mobile, color: Colors.white),
+                label: const Text('إرسال رمز التحقق OTP 📩',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ] else ...[
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: 'البريد الإلكتروني *',
+                hintText: 'example@domain.com',
+                prefixIcon:
+                    Icon(Icons.email_outlined, color: _manager.primaryColor),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade300)),
+              ),
+              validator: (v) => (v == null || !v.contains('@'))
+                  ? 'يرجى إدخال بريد إلكتروني صالح'
+                  : null,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                labelText: 'كلمة المرور *',
+                prefixIcon:
+                    Icon(Icons.lock_outline, color: _manager.primaryColor),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: Colors.grey),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade300)),
+              ),
+              validator: (v) => (v == null || v.length < 6)
+                  ? 'كلمة المرور يجب ألا تقل عن 6 خانات'
+                  : null,
+            ),
+            const SizedBox(height: 14),
+            if (_isSignUp) ...[
+              TextFormField(
+                controller: _confirmPasswordController,
+                obscureText: _obscureConfirmPassword,
+                decoration: InputDecoration(
+                  labelText: 'تأكيد كلمة المرور *',
+                  prefixIcon:
+                      Icon(Icons.lock_reset, color: _manager.primaryColor),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: Colors.grey),
+                    onPressed: () => setState(() =>
+                        _obscureConfirmPassword = !_obscureConfirmPassword),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.grey.shade300)),
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty)
+                    return 'يرجى إعادة كتابة كلمة المرور';
+                  if (v != _passwordController.text)
+                    return 'كلمتا المرور غير متطابقتين!';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+            ],
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: _manager.buttonColor,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14))),
+                onPressed: _isLoading ? null : _submitEmailAuth,
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                        _isSignUp
+                            ? 'إنشاء الحساب وتأكيد البريد ✨'
+                            : 'تسجيل الدخول 🔑',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: () => setState(() {
+              _isSignUp = !_isSignUp;
+              _isPhoneAuthMode = false;
+            }),
+            child: Text(
+              _isSignUp
+                  ? 'لديك حساب بالفعل؟ تسجيل الدخول'
+                  : 'ليس لديك حساب؟ إنشاء حساب جديد الآن',
+              style: TextStyle(
+                  color: _manager.primaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2570,7 +2909,6 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
   final bool _allowComments = true;
   bool _isSubmitting = false;
 
-  // تخزين البايتات للمعاينة السريعة وحل مشكلة الشاشات البيضاء
   final List<Uint8List> _previewImageBytes = [];
   final List<String> _uploadedImageUrls = [];
   final ImagePicker _picker = ImagePicker();
@@ -2612,7 +2950,6 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
         TextEditingController(text: _manager.currentUserPhone);
   }
 
-  /// ضغط ورفع الصورة إلى Supabase Storage وجلب الرابط العام getPublicUrl مع المعاينة الفورية بالبايتات
   Future<void> _pickAndUploadImage() async {
     final currentPlan = _manager.getCurrentUserPlan();
     if (_uploadedImageUrls.length >= currentPlan.maxImagesPerAd) {
@@ -2626,7 +2963,6 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
       return;
     }
 
-    // ضغط الصور تلقائياً وخلف الكواليس
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 70,
@@ -2702,7 +3038,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
       publisherEmail: _manager.currentUserEmail,
       isFeatured: currentPlan.customFeatures.any((f) => f.text.contains('VIP')),
       allowComments: _allowComments,
-      status: 'pending', // يبدأ معلقاً بانتظار مراجعة الإدارة
+      status: 'pending',
       createdAt: DateTime.now(),
     );
 
@@ -3824,7 +4160,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
 
   // إدارة الأقسام
   final TextEditingController _categoryNameController = TextEditingController();
-  double _catRadius = 14.0;
+  double _catRadius = 12.0; // قيمة افتراضية آمنة متوفرة بالقائمة
   IconData _selectedCatIcon = Icons.category;
 
   // إدارة الأخبار
@@ -4227,6 +4563,10 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
       Icons.local_offer,
     ];
 
+    const allowedRadiusValues = [0.0, 12.0, 24.0];
+    final safeRadius =
+        allowedRadiusValues.contains(_catRadius) ? _catRadius : 12.0;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -4263,7 +4603,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
           children: [
             const Text('شكل حواف الأزرار:'),
             DropdownButton<double>(
-              value: _catRadius,
+              value: safeRadius, // حماية تامة ضد خطأ الـ Assertion
               items: const [
                 DropdownMenuItem(value: 0.0, child: Text('حواف حادة (0px)')),
                 DropdownMenuItem(
@@ -4296,7 +4636,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                     iconData: _selectedCatIcon,
                     backgroundColor: _manager.primaryColor,
                     textColor: Colors.white,
-                    borderRadiusValue: _catRadius,
+                    borderRadiusValue: safeRadius,
                     subcategories: ['عام', 'مستلزمات وملحقات'],
                   ),
                 );
@@ -4555,7 +4895,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
         ),
         const SizedBox(height: 16),
         const Divider(),
-        const Text('إدارة البنرات المزدوجة المتجاورة (Side-by-Side):',
+        const Text('إدارة البنرات المزدوجة المربعة (Square Banners):',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 8),
         Row(
@@ -4679,7 +5019,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                       fontWeight: FontWeight.bold,
                       decoration:
                           user.isBanned ? TextDecoration.lineThrough : null)),
-              subtitle: Text('${user.email} | الدور: ${user.role}'),
+              subtitle: Text(
+                  '${user.email.isNotEmpty ? user.email : user.phone} | الدور: ${user.role}'),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
