@@ -7,7 +7,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // ==============================================================================
-// 1. نقطة الدخول وتهيئة اتصال Supabase السحابي المعتمد مع معالجة أخطاء الشبكة
+// 1. الثوابت السحابية الحقيقية الدقيقة لمشروعك وقنوات التخزين
+// ==============================================================================
+const String kSupabaseUrl = 'https://zbjjkigkxbpktpmpcdqc.supabase.co';
+const String kSupabaseAnonKey =
+    'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_zbjjkigkxbpktpmpcdqc';
+
+const List<String> kSuperAdminEmails = [
+  'sameraoaad@gmail.com',
+  'aoaadabdo@gmail.com',
+];
+
+const String kStorageBucketAds = 'ad_images';
+const String kStorageBucketBanners = 'banner_images';
+const String kStorageBucketReceipts = 'receipt_images';
+
+// ==============================================================================
+// 2. نقطة الدخول والتهيئة المتوافقة 100% مع أندرويد و Supabase
 // ==============================================================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,22 +32,16 @@ void main() async {
   String savedEmail = '';
   String savedUserId = '';
 
-  const String supabaseUrl = 'https://zbjjkigkxbpkpmpcdqc.supabase.co';
-  const String supabaseAnonKey =
-      'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_zbjjkigkxbpkpmpcdqc';
-
   try {
-    // تهيئة الاتصال السحابي مع ضبط آمن ومتوافق 100% مع جميع إصدارات Supabase
     await Supabase.initialize(
-      url: supabaseUrl.trim(),
-      anonKey: supabaseAnonKey.trim(),
+      url: kSupabaseUrl.trim(),
+      anonKey: kSupabaseAnonKey.trim(),
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
         autoRefreshToken: true,
       ),
     ).timeout(const Duration(seconds: 10));
 
-    // فحص الجلسة الفعلية للمستخدم
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null && session.user.email != null) {
       hasSavedSession = true;
@@ -56,7 +66,6 @@ void main() async {
     );
   }
 
-  // تحميل البيانات الأولية بشكل آمن
   try {
     await appState.initializeDataFromSupabase();
   } catch (e) {
@@ -65,18 +74,6 @@ void main() async {
 
   runApp(const SyriaMarket2028App());
 }
-
-// ==============================================================================
-// 2. قائمة المشرفين الحصرية وقنوات التخزين السحابي (Storage Buckets)
-// ==============================================================================
-const List<String> kSuperAdminEmails = [
-  'sameraoaad@gmail.com',
-  'aoaadabdo@gmail.com',
-];
-
-const String kStorageBucketAds = 'ad_images';
-const String kStorageBucketBanners = 'banner_images';
-const String kStorageBucketReceipts = 'receipt_images';
 
 // ==============================================================================
 // 3. نماذج البيانات السحابية الحقيقية (Clean Data Models)
@@ -3020,7 +3017,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 }
 
 // ==============================================================================
-// 8. شاشة المصادقة وتأكيد الحسابات الشاملة (AuthScreen)
+// 8. شاشة المصادقة وتأكيد الحسابات الشاملة والمحصنة (AuthScreen)
 // ==============================================================================
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -3224,16 +3221,81 @@ class _AuthScreenState extends State<AuthScreen> {
         );
         Navigator.pop(context);
       }
-    } catch (e) {
+    } on SocketException catch (_) {
+      _handleNetworkOrDnsFailure(name, email);
+    } on AuthException catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('خطأ في تسجيل الدخول: $e'),
+              content: Text('⚠️ خطأ في الحساب: ${e.message}'),
               backgroundColor: Colors.red.shade800),
         );
       }
+    } catch (e) {
+      if (e.toString().contains('Failed host lookup') ||
+          e.toString().contains('SocketException')) {
+        _handleNetworkOrDnsFailure(name, email);
+      } else {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('خطأ: $e'), backgroundColor: Colors.red.shade800),
+          );
+        }
+      }
     }
+  }
+
+  void _handleNetworkOrDnsFailure(String name, String email) {
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.wifi_off, color: Colors.orange, size: 28),
+            SizedBox(width: 8),
+            Text('تنبيه الاتصال بالشبكة'),
+          ],
+        ),
+        content: const Text(
+          'تعذر الوصول لمخدم Supabase بسبب حجب أو بطء بالـ DNS المحلي.\n\n'
+          'يمكنك المتابعة بالوضع المحلي فوراً لاستخدام التطبيق دون توقف.',
+          style: TextStyle(height: 1.5, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: _manager.primaryColor),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _manager.setSessionUser(
+                userId: 'local_${DateTime.now().millisecondsSinceEpoch}',
+                email: email,
+                name: name,
+              );
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('تم تسجيل الدخول بالوضع المحلي بنجاح ✨')),
+              );
+            },
+            child: const Text('المتابعة بالوضع المحلي',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showEmailVerificationDialog(String email) {
@@ -3691,7 +3753,6 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
     }
   }
 
-  /// فتح المعرض وتحديد عدة صور ورفعها مباشرة إلى Supabase Storage مع حماية المهل
   Future<void> _pickMultiImagesAndUpload() async {
     final currentPlan = _manager.getCurrentUserPlan();
     final remainingAllowed =
@@ -4412,7 +4473,6 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
     );
   }
 
-  /// زر الختم الأحمر الموحد (تم البيع) مع رسالة التأكيد والحذف بعد 48 ساعة
   void _confirmAndApplySoldStamp() {
     showDialog(
       context: context,
