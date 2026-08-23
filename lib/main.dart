@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // ==============================================================================
-// 1. نقطة الدخول وتهيئة اتصال Supabase السحابي المعتمد وفحص الجلسة الحقيقية
+// 1. نقطة الدخول وتهيئة اتصال Supabase السحابي المعتمد مع معالجة أخطاء الشبكة
 // ==============================================================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,19 +21,20 @@ void main() async {
       'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_zbjjkigkxbpkpmpcdqc';
 
   try {
-    // تهيئة الاتصال الآمن مع مهلة زمنية لحماية التطبيق من أخطاء الـ Socket
+    // تهيئة الاتصال السحابي مع مهلة زمنية لحماية التطبيق من أخطاء الـ Socket
     await Supabase.initialize(
       url: supabaseUrl.trim(),
       anonKey: supabaseAnonKey.trim(),
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
+        autoRefreshToken: true,
       ),
       realtimeClientOptions: const RealtimeClientOptions(
-        logLevel: RealtimeLogLevel.info,
+        logLevel: RealtimeLogLevel.none,
       ),
     ).timeout(const Duration(seconds: 10));
 
-    // فحص الجلسة الفعلية للمستخدم عبر Auth Session
+    // فحص الجلسة الفعلية للمستخدم
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null && session.user.email != null) {
       hasSavedSession = true;
@@ -41,11 +42,11 @@ void main() async {
       savedUserId = session.user.id;
     }
   } on SocketException catch (e) {
-    debugPrint('⚠️ خطأ في الشبكة (SocketException): ${e.message}');
+    debugPrint('⚠️ [Network Error] SocketException during init: ${e.message}');
   } on TimeoutException catch (e) {
-    debugPrint('⚠️ انتهت مهلة الاتصال بالخادم: $e');
+    debugPrint('⚠️ [Network Error] Connection timed out: $e');
   } catch (e) {
-    debugPrint('Supabase Connection notice: $e');
+    debugPrint('⚠️ [Init Notice] General Supabase init notice: $e');
   }
 
   final appState = AppStateManager();
@@ -58,7 +59,7 @@ void main() async {
     );
   }
 
-  // تحميل البيانات السحابية الحقيقية عند الإقلاع بشكل آمن مع معالجة الأخطاء
+  // تحميل البيانات الأولية بشكل آمن
   try {
     await appState.initializeDataFromSupabase();
   } catch (e) {
@@ -567,7 +568,7 @@ class ChatMessage {
       };
 }
 
-/// نموذج الصلاحيات
+/// نموذج الصلاحيات للمشرفين
 class AdminPermissions {
   final bool canReviewAds;
   final bool canManageNews;
@@ -772,7 +773,13 @@ class AppStateManager extends ChangeNotifier {
   factory AppStateManager() => _instance;
   AppStateManager._internal();
 
-  SupabaseClient get _client => Supabase.instance.client;
+  SupabaseClient? get _client {
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // إعدادات التطبيق العامة
   String appTitle = 'سوق سوريا';
@@ -833,20 +840,34 @@ class AppStateManager extends ChangeNotifier {
   // استدعاء وتحميل البيانات الحقيقية من Supabase
   // ==========================================
   Future<void> initializeDataFromSupabase() async {
+    _populateDefaults();
+
     try {
-      await Future.wait([
-        fetchAppSettings(),
-        fetchAds(),
-        fetchBanners(),
-        fetchCategories(),
-        fetchPlans(),
-        fetchNewsTicker(),
-        fetchPaymentMethods(),
-      ]).timeout(const Duration(seconds: 12));
-    } catch (e) {
-      debugPrint('Supabase initial fetch batch notice: $e');
-    }
-    await autoCleanupExpiredSoldAds();
+      final session = _client?.auth.currentSession;
+      if (session != null && session.user.email != null) {
+        setSessionUser(
+          userId: session.user.id,
+          email: session.user.email!,
+          name: session.user.email!.split('@').first,
+        );
+      }
+    } catch (_) {}
+
+    fetchAppSettings();
+    fetchAds();
+    fetchBanners();
+    fetchCategories();
+    fetchPlans();
+    fetchNewsTicker();
+    fetchPaymentMethods();
+    autoCleanupExpiredSoldAds();
+  }
+
+  void _populateDefaults() {
+    _populateDefaultCategories();
+    _populateDefaultPlans();
+    _populateDefaultPaymentMethods();
+    _populateDefaultNewsTicker();
   }
 
   void setSessionUser(
@@ -861,12 +882,13 @@ class AppStateManager extends ChangeNotifier {
 
   // 1. جلب الإعدادات العامة
   Future<void> fetchAppSettings() async {
+    if (_client == null) return;
     try {
-      final res = await _client
+      final res = await _client!
           .from('app_settings')
           .select()
           .maybeSingle()
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 6));
       if (res != null) {
         appTitle = res['app_title'] ?? appTitle;
         appSubtitle = res['app_subtitle'] ?? appSubtitle;
@@ -892,14 +914,17 @@ class AppStateManager extends ChangeNotifier {
 
   // 2. جلب الإعلانات الحقيقية
   Future<void> fetchAds() async {
+    if (_client == null) return;
     try {
-      final response = await _client
+      final response = await _client!
           .from('ads')
           .select()
           .order('created_at', ascending: false)
-          .timeout(const Duration(seconds: 10));
-      ads = (response as List).map((row) => AdItem.fromMap(row)).toList();
-      notifyListeners();
+          .timeout(const Duration(seconds: 8));
+      if (response is List) {
+        ads = response.map((row) => AdItem.fromMap(row)).toList();
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Error fetching ads: $e');
     }
@@ -907,14 +932,16 @@ class AppStateManager extends ChangeNotifier {
 
   // 3. جلب البنرات
   Future<void> fetchBanners() async {
+    if (_client == null) return;
     try {
-      final response = await _client
+      final response = await _client!
           .from('banners')
           .select()
-          .timeout(const Duration(seconds: 8));
-      banners =
-          (response as List).map((row) => BannerItem.fromMap(row)).toList();
-      notifyListeners();
+          .timeout(const Duration(seconds: 6));
+      if (response is List) {
+        banners = response.map((row) => BannerItem.fromMap(row)).toList();
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Error fetching banners: $e');
     }
@@ -922,21 +949,17 @@ class AppStateManager extends ChangeNotifier {
 
   // 4. جلب الأقسام
   Future<void> fetchCategories() async {
+    if (_client == null) return;
     try {
-      final response = await _client
+      final response = await _client!
           .from('categories')
           .select()
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 6));
       if ((response as List).isNotEmpty) {
         categories = response.map((row) => CategoryModel.fromMap(row)).toList();
-      } else {
-        _populateDefaultCategories();
+        notifyListeners();
       }
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error fetching categories: $e');
-      _populateDefaultCategories();
-    }
+    } catch (_) {}
   }
 
   void _populateDefaultCategories() {
@@ -1012,21 +1035,17 @@ class AppStateManager extends ChangeNotifier {
 
   // 5. جلب الباقات
   Future<void> fetchPlans() async {
+    if (_client == null) return;
     try {
-      final response = await _client
+      final response = await _client!
           .from('plans')
           .select()
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 6));
       if ((response as List).isNotEmpty) {
         plans = response.map((row) => PlanConfig.fromMap(row)).toList();
-      } else {
-        _populateDefaultPlans();
+        notifyListeners();
       }
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error fetching plans: $e');
-      _populateDefaultPlans();
-    }
+    } catch (_) {}
   }
 
   void _populateDefaultPlans() {
@@ -1075,71 +1094,73 @@ class AppStateManager extends ChangeNotifier {
 
   // 6. جلب شريط الأخبار
   Future<void> fetchNewsTicker() async {
+    if (_client == null) return;
     try {
-      final response = await _client
+      final response = await _client!
           .from('news_ticker')
           .select()
           .order('id', ascending: true)
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 6));
       if ((response as List).isNotEmpty) {
         newsTicker =
             response.map((row) => row['text']?.toString() ?? '').toList();
-      } else {
-        newsTicker = [
-          '🔥 مرحباً بكم في سوق سوريا الشامل 2028 - المنصة الرائدة للبيع والشراء والمزادات الحرة في كافة المحافظات',
-          '👑 باقة VIP الذهبية متاحة الآن بخصم 50% مع ميزات نشر وتفاوض غير محدودة',
-          '⚡ نظام الختم الأحمر والحذف التلقائي بعد 48 ساعة نشط الآن لحماية وتطهير المحتوى',
-        ];
+        notifyListeners();
       }
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error fetching news ticker: $e');
-    }
+    } catch (_) {}
+  }
+
+  void _populateDefaultNewsTicker() {
+    newsTicker = [
+      '🔥 مرحباً بكم في سوق سوريا الشامل 2028 - المنصة الرائدة للبيع والشراء والمزادات الحرة في كافة المحافظات',
+      '👑 باقة VIP الذهبية متاحة الآن بخصم 50% مع ميزات نشر وتفاوض غير محدودة',
+      '⚡ نظام الختم الأحمر والحذف التلقائي بعد 48 ساعة نشط الآن لحماية وتطهير المحتوى',
+    ];
   }
 
   // 7. جلب طرق الدفع
   Future<void> fetchPaymentMethods() async {
+    if (_client == null) return;
     try {
-      final response = await _client
+      final response = await _client!
           .from('payment_methods')
           .select()
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 6));
       if ((response as List).isNotEmpty) {
         paymentMethods =
             response.map((row) => PaymentMethod.fromMap(row)).toList();
-      } else {
-        paymentMethods = [
-          PaymentMethod(
-            id: 'syriatel',
-            title: 'سيريتل كاش (Syriatel Cash)',
-            accountNumber: '0933112233',
-            recipientName: 'سوق سوريا الشامل 2028',
-            notes:
-                'يرجى تحويل المبلغ وتصوير إشعار العملية وإرفاقه بالأسفل لتفعيل الباقة فوراً.',
-            icon: Icons.phone_android,
-          ),
-          PaymentMethod(
-            id: 'mtn',
-            title: 'MTN كاش (MTN Cash)',
-            accountNumber: '0944112233',
-            recipientName: 'سوق سوريا الشامل 2028',
-            notes: 'تحويل فوري مباشر لحساب الكاش مع حفظ صورة العملية.',
-            icon: Icons.account_balance_wallet,
-          ),
-          PaymentMethod(
-            id: 'sham_bank',
-            title: 'حساب بنك الشام / بنك البركة',
-            accountNumber: 'SY-1002938472910',
-            recipientName: 'شركة سوق سوريا للاستثمار',
-            notes: 'إيداع بنكي مباشر عبر فروع البنك في كافة المحافظات.',
-            icon: Icons.account_balance,
-          ),
-        ];
+        notifyListeners();
       }
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error fetching payment methods: $e');
-    }
+    } catch (_) {}
+  }
+
+  void _populateDefaultPaymentMethods() {
+    paymentMethods = [
+      PaymentMethod(
+        id: 'syriatel',
+        title: 'سيريتل كاش (Syriatel Cash)',
+        accountNumber: '0933112233',
+        recipientName: 'سوق سوريا الشامل 2028',
+        notes:
+            'يرجى تحويل المبلغ وتصوير إشعار العملية وإرفاقه بالأسفل لتفعيل الباقة فوراً.',
+        icon: Icons.phone_android,
+      ),
+      PaymentMethod(
+        id: 'mtn',
+        title: 'MTN كاش (MTN Cash)',
+        accountNumber: '0944112233',
+        recipientName: 'سوق سوريا الشامل 2028',
+        notes: 'تحويل فوري مباشر لحساب الكاش مع حفظ صورة العملية.',
+        icon: Icons.account_balance_wallet,
+      ),
+      PaymentMethod(
+        id: 'sham_bank',
+        title: 'حساب بنك الشام / بنك البركة',
+        accountNumber: 'SY-1002938472910',
+        recipientName: 'شركة سوق سوريا للاستثمار',
+        notes: 'إيداع بنكي مباشر عبر فروع البنك في كافة المحافظات.',
+        icon: Icons.account_balance,
+      ),
+    ];
   }
 
   // تحديث إعدادات التطبيق وحفظها في Supabase
@@ -1157,17 +1178,19 @@ class AppStateManager extends ChangeNotifier {
     if (disclaimer != null) disclaimerText = disclaimer;
     notifyListeners();
 
-    try {
-      await _client.from('app_settings').upsert({
-        'id': 1,
-        'app_title': appTitle,
-        'app_subtitle': appSubtitle,
-        'is_maintenance': isMaintenanceMode,
-        'maintenance_message': maintenanceMessage,
-        'disclaimer_text': disclaimerText,
-      }).timeout(const Duration(seconds: 8));
-    } catch (e) {
-      debugPrint('Error updating app config: $e');
+    if (_client != null) {
+      try {
+        await _client!.from('app_settings').upsert({
+          'id': 1,
+          'app_title': appTitle,
+          'app_subtitle': appSubtitle,
+          'is_maintenance': isMaintenanceMode,
+          'maintenance_message': maintenanceMessage,
+          'disclaimer_text': disclaimerText,
+        }).timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint('Error updating app config: $e');
+      }
     }
   }
 
@@ -1186,17 +1209,19 @@ class AppStateManager extends ChangeNotifier {
     if (scaffoldBg != null) scaffoldBgColor = scaffoldBg;
     notifyListeners();
 
-    try {
-      await _client.from('app_settings').upsert({
-        'id': 1,
-        'primary_color': primaryColor.value,
-        'secondary_color': secondaryColor.value,
-        'app_bar_color': appBarColor.value,
-        'button_color': buttonColor.value,
-        'scaffold_bg_color': scaffoldBgColor.value,
-      }).timeout(const Duration(seconds: 8));
-    } catch (e) {
-      debugPrint('Error updating app colors: $e');
+    if (_client != null) {
+      try {
+        await _client!.from('app_settings').upsert({
+          'id': 1,
+          'primary_color': primaryColor.value,
+          'secondary_color': secondaryColor.value,
+          'app_bar_color': appBarColor.value,
+          'button_color': buttonColor.value,
+          'scaffold_bg_color': scaffoldBgColor.value,
+        }).timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint('Error updating app colors: $e');
+      }
     }
   }
 
@@ -1214,58 +1239,11 @@ class AppStateManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  // تسجيل الدخول الحقيقي وربطه بالـ Auth و Users Profile
-  Future<bool> loginUser(
-      {required String name,
-      required String email,
-      required String phone,
-      String? password}) async {
-    try {
-      if (password != null && password.isNotEmpty) {
-        final authRes = await _client.auth
-            .signInWithPassword(
-              email: email.trim(),
-              password: password,
-            )
-            .timeout(const Duration(seconds: 10));
-        currentUserId = authRes.user?.id ?? '';
-      }
-    } catch (e) {
-      debugPrint('Auth login error: $e');
-    }
-
-    isLoggedIn = true;
-    currentUserName = name;
-    currentUserEmail = email.trim();
-    currentUserPhone = phone;
-    if (currentUserId.isEmpty) {
-      currentUserId = _client.auth.currentUser?.id ??
-          (email.trim().isNotEmpty ? email.trim() : phone.trim());
-    }
-    currentUserPlanId = isSuperAdmin ? 'plan_vip' : 'plan_free';
-
-    try {
-      await _client.from('users_profiles').upsert({
-        'id': currentUserId,
-        'name': name,
-        'email': email.trim(),
-        'phone': phone,
-        'role': isSuperAdmin ? 'super_admin' : 'user',
-        'plan_id': currentUserPlanId,
-      }).timeout(const Duration(seconds: 8));
-    } catch (e) {
-      debugPrint('Profile upsert notice: $e');
-    }
-
-    notifyListeners();
-    return true;
-  }
-
   Future<void> logoutUser() async {
-    try {
-      await _client.auth.signOut().timeout(const Duration(seconds: 6));
-    } catch (e) {
-      debugPrint('Logout Supabase notice: $e');
+    if (_client != null) {
+      try {
+        await _client!.auth.signOut().timeout(const Duration(seconds: 6));
+      } catch (_) {}
     }
     isLoggedIn = false;
     currentUserName = 'زائر سوق سوريا';
@@ -1292,9 +1270,7 @@ class AppStateManager extends ChangeNotifier {
               .from(kStorageBucketAds)
               .remove([fileName]).timeout(const Duration(seconds: 8));
         }
-      } catch (e) {
-        debugPrint('Storage Cleanup notice: $e');
-      }
+      } catch (_) {}
     }
   }
 
@@ -1308,16 +1284,16 @@ class AppStateManager extends ChangeNotifier {
 
     for (final ad in expiredAds) {
       try {
-        await _client
-            .from('ads')
-            .delete()
-            .eq('id', ad.id)
-            .timeout(const Duration(seconds: 8));
+        if (_client != null) {
+          await _client!
+              .from('ads')
+              .delete()
+              .eq('id', ad.id)
+              .timeout(const Duration(seconds: 8));
+        }
         await deleteStorageImages(ad.imageUrls);
         ads.removeWhere((x) => x.id == ad.id);
-      } catch (e) {
-        debugPrint('Auto cleanup error: $e');
-      }
+      } catch (_) {}
     }
     if (expiredAds.isNotEmpty) {
       notifyListeners();
@@ -3718,7 +3694,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
     }
   }
 
-  /// فتح المعرض وتحديد عدة صور ورفعها مباشرة إلى Supabase Storage
+  /// فتح المعرض وتحديد عدة صور ورفعها مباشرة إلى Supabase Storage مع حماية المهل
   Future<void> _pickMultiImagesAndUpload() async {
     final currentPlan = _manager.getCurrentUserPlan();
     final remainingAllowed =
