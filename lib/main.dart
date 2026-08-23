@@ -18,7 +18,8 @@ void main() async {
   try {
     await Supabase.initialize(
       url: 'https://zbjjkigkxbpkpmpcdqc.supabase.co',
-      anonKey: 'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_...',
+      anonKey:
+          'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_zbjjkigkxbpkpmpcdqc',
     );
 
     // فحص الجلسة الفعلية للمستخدم عبر Auth Session
@@ -42,8 +43,12 @@ void main() async {
     );
   }
 
-  // تحميل البيانات السحابية الحقيقية عند الإقلاع
-  await appState.initializeDataFromSupabase();
+  // تحميل البيانات السحابية الحقيقية عند الإقلاع بشكل آمن
+  try {
+    await appState.initializeDataFromSupabase();
+  } catch (e) {
+    debugPrint('Initial Data Fetch notice: $e');
+  }
 
   runApp(const SyriaMarket2028App());
 }
