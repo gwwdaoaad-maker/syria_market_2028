@@ -11,7 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 // ==============================================================================
 const String kSupabaseUrl = 'https://zbjjkigkxbpktpmpcdqc.supabase.co';
 const String kSupabaseAnonKey =
-    'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_zbjjkigkxbpktpmpcdqc';
+    'sb_publishable_ZZBI_vTK7ks1yfO2g3Zo0Q_Sg4QizEr';
 
 const List<String> kSuperAdminEmails = [
   'sameraoaad@gmail.com',
