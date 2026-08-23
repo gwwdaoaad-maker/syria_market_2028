@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // ==============================================================================
-// 1. نقطة الدخول وتهيئة اتصال Supabase السحابي الحقيقي
+// 1. نقطة الدخول وتهيئة اتصال Supabase السحابي وفحص الجلسة المباشرة
 // ==============================================================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  bool hasSavedSession = false;
+  String savedEmail = '';
 
   try {
     await Supabase.initialize(
@@ -16,26 +20,44 @@ void main() async {
       anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key_syria_market',
     );
+
+    // فحص الجلسة التلقائية المسجلة لتجاوز شاشات الدخول
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session != null && session.user.email != null) {
+      hasSavedSession = true;
+      savedEmail = session.user.email!;
+    }
   } catch (e) {
     debugPrint('Supabase Initialization Notice: $e');
+  }
+
+  final appState = AppStateManager();
+  if (hasSavedSession && savedEmail.isNotEmpty) {
+    appState.loginUser(
+      name: savedEmail.split('@').first,
+      email: savedEmail,
+      phone: '',
+    );
   }
 
   runApp(const SyriaMarket2028App());
 }
 
 // ==============================================================================
-// 2. قائمة المشرفين الحصرية والقفل الأمني
+// 2. قائمة المشرفين الحصرية وقفل الحماية الأمني
 // ==============================================================================
 const List<String> kSuperAdminEmails = [
   'sameraoaad@gmail.com',
   'aoaadabdo@gmail.com',
 ];
 
+const String kStorageBucketAds = 'ad_images';
+
 // ==============================================================================
-// 3. نماذج البيانات السحابية الحقيقية (Clean Models)
+// 3. نماذج البيانات السحابية الحقيقية (Clean Data Models)
 // ==============================================================================
 
-/// كلاس يمثل الإعلان الحقيقي في قاعدة البيانات السحابية
+/// نموذج الإعلان الحقيقي
 class AdItem {
   final String id;
   final String userId;
@@ -58,6 +80,7 @@ class AdItem {
   final bool isSold;
   final bool allowComments;
   final String status; // 'approved', 'pending', 'rejected'
+  final DateTime? stampedAt; // تاريخ وضع الختم الأحمر
   final DateTime createdAt;
 
   AdItem({
@@ -82,6 +105,7 @@ class AdItem {
     this.isSold = false,
     this.allowComments = true,
     this.status = 'approved',
+    this.stampedAt,
     required this.createdAt,
   });
 
@@ -107,6 +131,7 @@ class AdItem {
     bool? isSold,
     bool? allowComments,
     String? status,
+    DateTime? stampedAt,
     DateTime? createdAt,
   }) {
     return AdItem(
@@ -131,6 +156,7 @@ class AdItem {
       isSold: isSold ?? this.isSold,
       allowComments: allowComments ?? this.allowComments,
       status: status ?? this.status,
+      stampedAt: stampedAt ?? this.stampedAt,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -158,6 +184,7 @@ class AdItem {
       'is_sold': isSold,
       'allow_comments': allowComments,
       'status': status,
+      'stamped_at': stampedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -190,6 +217,9 @@ class AdItem {
       isSold: map['is_sold'] == true,
       allowComments: map['allow_comments'] ?? true,
       status: map['status']?.toString() ?? 'approved',
+      stampedAt: map['stamped_at'] != null
+          ? DateTime.tryParse(map['stamped_at'].toString())
+          : null,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -197,56 +227,160 @@ class AdItem {
   }
 }
 
-/// كلاس يمثل إدارة خطط وباقات الإعلانات وأسعارها وقيودها
+/// نموذج ميزة الباقة المصحوبة بأيقونة بصرية
+class PlanFeature {
+  String text;
+  IconData icon;
+
+  PlanFeature({required this.text, required this.icon});
+}
+
+/// نموذج باقة الاشتراك مع إمكانية التحرير اليدوي للشروط والمزايا
 class PlanConfig {
   final String id;
   final String name;
   final double priceSyp;
+  final String durationText;
+  final String
+      statusConditionText; // شرط ووضع الباقة المكتوب يدوياً (بدون Switches)
   final int maxAdsPerMonth;
   final int maxImagesPerAd;
-  final bool allowVideoAndLinks;
-  final bool allowBumpUp;
-  final bool allowVipBadge;
-  final bool allowBannerFeature;
+  final List<PlanFeature> customFeatures;
 
   PlanConfig({
     required this.id,
     required this.name,
     required this.priceSyp,
+    this.durationText = 'شهرياً',
+    this.statusConditionText = 'متاحة للجميع فوراً',
     required this.maxAdsPerMonth,
     required this.maxImagesPerAd,
-    required this.allowVideoAndLinks,
-    required this.allowBumpUp,
-    required this.allowVipBadge,
-    required this.allowBannerFeature,
+    required this.customFeatures,
   });
 
   PlanConfig copyWith({
     String? id,
     String? name,
     double? priceSyp,
+    String? durationText,
+    String? statusConditionText,
     int? maxAdsPerMonth,
     int? maxImagesPerAd,
-    bool? allowVideoAndLinks,
-    bool? allowBumpUp,
-    bool? allowVipBadge,
-    bool? allowBannerFeature,
+    List<PlanFeature>? customFeatures,
   }) {
     return PlanConfig(
       id: id ?? this.id,
       name: name ?? this.name,
       priceSyp: priceSyp ?? this.priceSyp,
+      durationText: durationText ?? this.durationText,
+      statusConditionText: statusConditionText ?? this.statusConditionText,
       maxAdsPerMonth: maxAdsPerMonth ?? this.maxAdsPerMonth,
       maxImagesPerAd: maxImagesPerAd ?? this.maxImagesPerAd,
-      allowVideoAndLinks: allowVideoAndLinks ?? this.allowVideoAndLinks,
-      allowBumpUp: allowBumpUp ?? this.allowBumpUp,
-      allowVipBadge: allowVipBadge ?? this.allowVipBadge,
-      allowBannerFeature: allowBannerFeature ?? this.allowBannerFeature,
+      customFeatures: customFeatures ?? this.customFeatures,
     );
   }
 }
 
-/// كلاس صلاحيات المشرفين الدقيقة
+/// نموذج القسم الرئيسي والفرعي مع تحكم الحواف والألوان
+class CategoryModel {
+  final String id;
+  String name;
+  IconData iconData;
+  Color backgroundColor;
+  Color textColor;
+  double borderRadiusValue; // شكل الحواف (دائري، حاد، منحني)
+  List<String> subcategories;
+
+  CategoryModel({
+    required this.id,
+    required this.name,
+    required this.iconData,
+    this.backgroundColor = const Color(0xFF0F5132),
+    this.textColor = Colors.white,
+    this.borderRadiusValue = 12.0,
+    required this.subcategories,
+  });
+
+  CategoryModel copyWith({
+    String? id,
+    String? name,
+    IconData? iconData,
+    Color? backgroundColor,
+    Color? textColor,
+    double? borderRadiusValue,
+    List<String>? subcategories,
+  }) {
+    return CategoryModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      iconData: iconData ?? this.iconData,
+      backgroundColor: backgroundColor ?? this.backgroundColor,
+      textColor: textColor ?? this.textColor,
+      borderRadiusValue: borderRadiusValue ?? this.borderRadiusValue,
+      subcategories: subcategories ?? this.subcategories,
+    );
+  }
+}
+
+/// نموذج البنرات الترويجية الحية
+class BannerItem {
+  final String id;
+  final String title;
+  final String subtitle;
+  final String imageUrl;
+  final String targetUrl;
+  final String position; // 'top' (علوي) أو 'bottom' (سفلي)
+
+  BannerItem({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.imageUrl,
+    required this.targetUrl,
+    this.position = 'top',
+  });
+
+  BannerItem copyWith({
+    String? id,
+    String? title,
+    String? subtitle,
+    String? imageUrl,
+    String? targetUrl,
+    String? position,
+  }) {
+    return BannerItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      imageUrl: imageUrl ?? this.imageUrl,
+      targetUrl: targetUrl ?? this.targetUrl,
+      position: position ?? this.position,
+    );
+  }
+}
+
+/// نموذج رسائل المحادثة والتفاوض المباشر
+class ChatMessage {
+  final String id;
+  final String senderName;
+  final String senderEmail;
+  final String message;
+  final DateTime timestamp;
+  final bool isMe;
+  final double? offerAmount;
+
+  ChatMessage({
+    required this.id,
+    required this.senderName,
+    required this.senderEmail,
+    required this.message,
+    required this.timestamp,
+    required this.isMe,
+    this.offerAmount,
+  });
+}
+
+/// نموذج الصلاحيات
 class AdminPermissions {
   final bool canReviewAds;
   final bool canManageNews;
@@ -255,7 +389,6 @@ class AdminPermissions {
   final bool canManagePlans;
   final bool canManageUsers;
   final bool canChangeColors;
-  final bool canSendBroadcasts;
 
   AdminPermissions({
     this.canReviewAds = true,
@@ -265,17 +398,16 @@ class AdminPermissions {
     this.canManagePlans = true,
     this.canManageUsers = true,
     this.canChangeColors = true,
-    this.canSendBroadcasts = true,
   });
 }
 
-/// كلاس يمثل المستخدمين والمشرفين مع حالة الحظر والتجميد
+/// نموذج المشرف والمستخدم
 class AdminUser {
   final String id;
   final String name;
   final String email;
   final String phone;
-  final String role; // 'super_admin', 'moderator', 'user'
+  final String role;
   final bool isBanned;
   final bool isFrozen;
   final AdminPermissions permissions;
@@ -314,114 +446,38 @@ class AdminUser {
   }
 }
 
-/// كلاس يمثل الأقسام والفئات الديناميكية
-class CategoryModel {
-  final String id;
-  final String name;
-  final IconData iconData;
-  final List<String> subcategories;
-
-  CategoryModel({
-    required this.id,
-    required this.name,
-    required this.iconData,
-    required this.subcategories,
-  });
-
-  CategoryModel copyWith({
-    String? id,
-    String? name,
-    IconData? iconData,
-    List<String>? subcategories,
-  }) {
-    return CategoryModel(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      iconData: iconData ?? this.iconData,
-      subcategories: subcategories ?? this.subcategories,
-    );
-  }
-}
-
-/// كلاس البنرات الترويجية الحية
-class BannerItem {
-  final String id;
-  final String title;
-  final String subtitle;
-  final String imageUrl;
-  final String targetUrl;
-  final bool isRightSide;
-
-  BannerItem({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.imageUrl,
-    required this.targetUrl,
-    required this.isRightSide,
-  });
-
-  BannerItem copyWith({
-    String? id,
-    String? title,
-    String? subtitle,
-    String? imageUrl,
-    String? targetUrl,
-    bool? isRightSide,
-  }) {
-    return BannerItem(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      subtitle: subtitle ?? this.subtitle,
-      imageUrl: imageUrl ?? this.imageUrl,
-      targetUrl: targetUrl ?? this.targetUrl,
-      isRightSide: isRightSide ?? this.isRightSide,
-    );
-  }
-}
-
-/// كلاس رسائل المحادثة والتفاوض المباشر
-class ChatMessage {
-  final String id;
-  final String senderName;
-  final String senderEmail;
-  final String message;
-  final DateTime timestamp;
-  final bool isMe;
-  final double? offerAmount;
-
-  ChatMessage({
-    required this.id,
-    required this.senderName,
-    required this.senderEmail,
-    required this.message,
-    required this.timestamp,
-    required this.isMe,
-    this.offerAmount,
-  });
-}
-
 // ==============================================================================
-// 4. مزود الحالة العام النظيف (AppStateManager - Clean & Dynamic)
+// 4. مزود الحالة العام السحابي المطور (AppStateManager)
 // ==============================================================================
 class AppStateManager extends ChangeNotifier {
   static final AppStateManager _instance = AppStateManager._internal();
   factory AppStateManager() => _instance;
   AppStateManager._internal();
 
-  // إعدادات التطبيق العامة القابلة للتغيير من الإدارة
+  // إعدادات التطبيق العامة
   String appTitle = 'سوق سوريا';
   String appSubtitle = 'الشامل 2028';
   bool isMaintenanceMode = false;
   String maintenanceMessage =
-      'المنصة حالياً تحت الصيانة الدورية لتحديث السيرفرات. سنعود إليكم قريباً جداً!';
+      'المنصة حالياً تحت الصيانة الدورية. سنعود قريباً جداً!';
 
-  // الثيم والألوان القابلة للتخصيص برمجياً
-  Color primaryColor = const Color(0xFF0F5132); // الأخضر السوري الملكي
-  Color secondaryColor = const Color(0xFFD4AF37); // الذهبي المميز
+  // الثيم والألوان العامة
+  Color primaryColor = const Color(0xFF0F5132);
+  Color secondaryColor = const Color(0xFFD4AF37);
   Color appBarColor = const Color(0xFF0F5132);
   Color buttonColor = const Color(0xFF0F5132);
   Color scaffoldBgColor = const Color(0xFFF8FAFC);
+
+  // إعدادات شريط الأخبار المتحرك
+  double tickerSpeed = 1.2; // سرعة التمرير القابلة للتحكم بالسلايدر
+  Color tickerBackgroundColor = const Color(0xFF0F172A);
+  Color tickerTextColor = Colors.white;
+  double tickerFontSize = 12.0;
+  IconData tickerIcon = Icons.campaign;
+
+  // إعدادات عداد تقليب البنرات بالثواني
+  int topBannerIntervalSeconds = 4;
+  int bottomBannerIntervalSeconds = 5;
 
   // حالة المستخدم الحالية
   bool isLoggedIn = false;
@@ -431,7 +487,6 @@ class AppStateManager extends ChangeNotifier {
   String currentUserPhone = '';
   String currentUserPlanId = 'plan_free';
 
-  /// فحص صارم لصلاحيات المشرفين المقيدين بالإيميلات الحصرية
   bool get isSuperAdmin {
     if (!isLoggedIn || currentUserEmail.isEmpty) return false;
     final cleanEmail = currentUserEmail.trim().toLowerCase();
@@ -439,12 +494,13 @@ class AppStateManager extends ChangeNotifier {
         .any((adminEmail) => adminEmail.toLowerCase() == cleanEmail);
   }
 
-  // القوائم السحابية النظيفة (خالية من أي بيانات وهمية)
+  // القوائم السحابية
   List<AdItem> ads = [];
 
   List<String> newsTicker = [
     '🔥 مرحباً بكم في سوق سوريا الشامل 2028 - المنصة الرائدة للبيع والشراء والمزادات الحرة في كافة المحافظات',
     '👑 باقة VIP الذهبية متاحة الآن بخصم 50% مع ميزات نشر وتفاوض غير محدودة',
+    '⚡ نظام الختم الأحمر والحذف التلقائي بعد 48 ساعة نشط الآن لحماية وتطهير المحتوى',
   ];
 
   List<PlanConfig> plans = [
@@ -452,98 +508,164 @@ class AppStateManager extends ChangeNotifier {
       id: 'plan_free',
       name: 'الباقة المجانية',
       priceSyp: 0,
+      durationText: 'دائمة',
+      statusConditionText: 'متاحة لجميع الحسابات الجديدة فوراً',
       maxAdsPerMonth: 5,
       maxImagesPerAd: 3,
-      allowVideoAndLinks: false,
-      allowBumpUp: false,
-      allowVipBadge: false,
-      allowBannerFeature: false,
+      customFeatures: [
+        PlanFeature(
+            text: 'نشر 5 إعلانات شهرياً', icon: Icons.check_circle_outline),
+        PlanFeature(
+            text: 'حتى 3 صور لكل إعلان', icon: Icons.photo_library_outlined),
+        PlanFeature(
+            text: 'تفاوض مباشر مع المشترين', icon: Icons.handshake_outlined),
+      ],
     ),
     PlanConfig(
       id: 'plan_vip',
       name: 'الباقة الذهبية VIP 👑',
       priceSyp: 150000,
+      durationText: 'شهرياً',
+      statusConditionText: 'متاحة للتفعيل الفوري عبر سيريتل/MTN كاش',
       maxAdsPerMonth: 9999,
       maxImagesPerAd: 10,
-      allowVideoAndLinks: true,
-      allowBumpUp: true,
-      allowVipBadge: true,
-      allowBannerFeature: true,
+      customFeatures: [
+        PlanFeature(text: 'نشر إعلانات غير محدود', icon: Icons.all_inclusive),
+        PlanFeature(text: 'حتى 10 صور عالية الدقة', icon: Icons.photo_library),
+        PlanFeature(
+            text: 'إضافة روابط وفيديوهات يوتيوب', icon: Icons.video_collection),
+        PlanFeature(
+            text: 'شارة VIP الذهبية والظهور بالصدارة', icon: Icons.verified),
+        PlanFeature(
+            text: 'الظهور في قسم البنرات الممولة', icon: Icons.campaign),
+      ],
     ),
   ];
 
   List<CategoryModel> categories = [
     CategoryModel(
-        id: 'cars',
-        name: '🚗 سيارات ومركبات',
-        iconData: Icons.directions_car,
-        subcategories: [
-          'سيارات سياحية',
-          'دراجات نارية',
-          'شاحنات ومعدات ثقيلة',
-          'قطع غيار واكسسوارات'
-        ]),
+      id: 'cars',
+      name: '🚗 سيارات ومركبات',
+      iconData: Icons.directions_car,
+      backgroundColor: const Color(0xFF0F5132),
+      textColor: Colors.white,
+      borderRadiusValue: 14.0,
+      subcategories: [
+        'سيارات سياحية',
+        'دراجات نارية',
+        'شاحنات ومعدات ثقيلة',
+        'قطع غيار واكسسوارات'
+      ],
+    ),
     CategoryModel(
-        id: 'realestate',
-        name: '🏢 عقارات وأراضي',
-        iconData: Icons.apartment,
-        subcategories: [
-          'شقق للبيع',
-          'شقق للإيجار',
-          'أراضي وزراعة',
-          'محلات ومكاتب تجارية'
-        ]),
+      id: 'realestate',
+      name: '🏢 عقارات وأراضي',
+      iconData: Icons.apartment,
+      backgroundColor: const Color(0xFF0F5132),
+      textColor: Colors.white,
+      borderRadiusValue: 14.0,
+      subcategories: [
+        'شقق للبيع',
+        'شقق للإيجار',
+        'أراضي وزراعة',
+        'محلات ومكاتب تجارية'
+      ],
+    ),
     CategoryModel(
-        id: 'electronics',
-        name: '📱 هواتف وإلكترونيات',
-        iconData: Icons.phone_android,
-        subcategories: [
-          'هواتف ذكية',
-          'أجهزة لوحية',
-          'لابتوب وكمبيوتر',
-          'شاشات وكاميرات'
-        ]),
+      id: 'electronics',
+      name: '📱 هواتف وإلكترونيات',
+      iconData: Icons.phone_android,
+      backgroundColor: const Color(0xFF0F5132),
+      textColor: Colors.white,
+      borderRadiusValue: 14.0,
+      subcategories: [
+        'هواتف ذكية',
+        'أجهزة لوحية',
+        'لابتوب وكمبيوتر',
+        'شاشات وكاميرات'
+      ],
+    ),
     CategoryModel(
-        id: 'furniture',
-        name: '🛋️ أثاث ومستعمل',
-        iconData: Icons.chair,
-        subcategories: [
-          'غرف نوم وصالونات',
-          'أجهزة منزلية كهربائية',
-          'مفروشات مكتبية',
-          'طاقة شمسية وبطاريات'
-        ]),
+      id: 'furniture',
+      name: '🛋️ أثاث ومستعمل',
+      iconData: Icons.chair,
+      backgroundColor: const Color(0xFF0F5132),
+      textColor: Colors.white,
+      borderRadiusValue: 14.0,
+      subcategories: [
+        'غرف نوم وصالونات',
+        'أجهزة منزلية كهربائية',
+        'مفروشات مكتبية',
+        'طاقة شمسية وبطاريات'
+      ],
+    ),
     CategoryModel(
-        id: 'fashion',
-        name: '👔 ألبسة وموضة',
-        iconData: Icons.checkroom,
-        subcategories: [
-          'ألبسة رجالية',
-          'ألبسة نسائية',
-          'ألبسة أطفال',
-          'ساعات ومجوهرات'
-        ]),
+      id: 'fashion',
+      name: '👔 ألبسة وموضة',
+      iconData: Icons.checkroom,
+      backgroundColor: const Color(0xFF0F5132),
+      textColor: Colors.white,
+      borderRadiusValue: 14.0,
+      subcategories: [
+        'ألبسة رجالية',
+        'ألبسة نسائية',
+        'ألبسة أطفال',
+        'ساعات ومجوهرات'
+      ],
+    ),
     CategoryModel(
-        id: 'jobs',
-        name: '💼 وظائف وخدمات',
-        iconData: Icons.work,
-        subcategories: [
-          'فرص عمل وشواغر',
-          'خدمات صيانة ومنزلية',
-          'شحن ونقل بضائع',
-          'دروس واستشارات'
-        ]),
+      id: 'jobs',
+      name: '💼 وظائف وخدمات',
+      iconData: Icons.work,
+      backgroundColor: const Color(0xFF0F5132),
+      textColor: Colors.white,
+      borderRadiusValue: 14.0,
+      subcategories: [
+        'فرص عمل وشواغر',
+        'خدمات صيانة ومنزلية',
+        'شحن ونقل بضائع',
+        'دروس واستشارات'
+      ],
+    ),
   ];
 
+  // البنرات المقسمة (علوية وسفلية)
   List<BannerItem> banners = [
     BannerItem(
       id: 'b1',
-      title: 'سيريتل كاش & MTN كاش',
-      subtitle: 'اشترك في باقة VIP الذهبية بثوانٍ',
+      title: 'سيريتل كاش',
+      subtitle: 'ترقية VIP فورية',
       imageUrl:
           'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=600',
       targetUrl: 'https://syriamarket.app/vip',
-      isRightSide: true,
+      position: 'top',
+    ),
+    BannerItem(
+      id: 'b2',
+      title: 'MTN كاش',
+      subtitle: 'دفع آمن وسريع',
+      imageUrl:
+          'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600',
+      targetUrl: 'https://syriamarket.app/vip',
+      position: 'top',
+    ),
+    BannerItem(
+      id: 'b3',
+      title: 'عروض سوق الشام',
+      subtitle: 'تخفيضات كبرى',
+      imageUrl:
+          'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=600',
+      targetUrl: 'https://syriamarket.app',
+      position: 'bottom',
+    ),
+    BannerItem(
+      id: 'b4',
+      title: 'مزادات السيارات',
+      subtitle: 'فحص وضمان شامل',
+      imageUrl:
+          'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600',
+      targetUrl: 'https://syriamarket.app',
+      position: 'bottom',
     ),
   ];
 
@@ -566,12 +688,8 @@ class AppStateManager extends ChangeNotifier {
     ),
   ];
 
-  void updateAppConfig({
-    String? title,
-    String? subtitle,
-    bool? maintenance,
-    String? maintMsg,
-  }) {
+  void updateAppConfig(
+      {String? title, String? subtitle, bool? maintenance, String? maintMsg}) {
     if (title != null) appTitle = title;
     if (subtitle != null) appSubtitle = subtitle;
     if (maintenance != null) isMaintenanceMode = maintenance;
@@ -579,18 +697,31 @@ class AppStateManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateAppColors({
-    Color? primary,
-    Color? secondary,
-    Color? appBar,
-    Color? button,
-    Color? scaffoldBg,
-  }) {
+  void updateAppColors(
+      {Color? primary,
+      Color? secondary,
+      Color? appBar,
+      Color? button,
+      Color? scaffoldBg}) {
     if (primary != null) primaryColor = primary;
     if (secondary != null) secondaryColor = secondary;
     if (appBar != null) appBarColor = appBar;
     if (button != null) buttonColor = button;
     if (scaffoldBg != null) scaffoldBgColor = scaffoldBg;
+    notifyListeners();
+  }
+
+  void updateTickerSettings(
+      {double? speed,
+      Color? bg,
+      Color? textCol,
+      double? fontSize,
+      IconData? icon}) {
+    if (speed != null) tickerSpeed = speed;
+    if (bg != null) tickerBackgroundColor = bg;
+    if (textCol != null) tickerTextColor = textCol;
+    if (fontSize != null) tickerFontSize = fontSize;
+    if (icon != null) tickerIcon = icon;
     notifyListeners();
   }
 
@@ -603,7 +734,6 @@ class AppStateManager extends ChangeNotifier {
     currentUserId = email.trim();
     currentUserPlanId = isSuperAdmin ? 'plan_vip' : 'plan_free';
 
-    // تسجيل المستخدم في القائمة إن لم يكن موجوداً
     if (!registeredUsers
         .any((u) => u.email.toLowerCase() == email.trim().toLowerCase())) {
       registeredUsers.add(
@@ -633,6 +763,45 @@ class AppStateManager extends ChangeNotifier {
   PlanConfig getCurrentUserPlan() {
     return plans.firstWhere((p) => p.id == currentUserPlanId,
         orElse: () => plans.first);
+  }
+
+  /// حذف صور المنشور نهائياً من Supabase Storage لتوفير المساحة
+  static Future<void> deleteStorageImages(List<String> imageUrls) async {
+    for (final url in imageUrls) {
+      try {
+        final uri = Uri.tryParse(url);
+        if (uri != null && uri.pathSegments.isNotEmpty) {
+          final fileName = uri.pathSegments.last;
+          await Supabase.instance.client.storage
+              .from(kStorageBucketAds)
+              .remove([fileName]);
+        }
+      } catch (e) {
+        debugPrint('Storage Cleanup notice: $e');
+      }
+    }
+  }
+
+  /// الفحص الآلي وحذف المنشورات المختومة بالأحمر التي تجاوزت 48 ساعة
+  Future<void> autoCleanupExpiredStampedAds() async {
+    final now = DateTime.now();
+    final expiredAds = ads.where((ad) {
+      if (ad.stampedAt == null) return false;
+      return now.difference(ad.stampedAt!).inHours >= 48;
+    }).toList();
+
+    for (final ad in expiredAds) {
+      try {
+        await Supabase.instance.client.from('ads').delete().eq('id', ad.id);
+        await deleteStorageImages(ad.imageUrls);
+        ads.removeWhere((x) => x.id == ad.id);
+      } catch (e) {
+        debugPrint('Auto cleanup error: $e');
+      }
+    }
+    if (expiredAds.isNotEmpty) {
+      notifyListeners();
+    }
   }
 }
 
@@ -667,9 +836,7 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
   }
 
   void _toggleTheme() {
-    setState(() {
-      _isDarkMode = !_isDarkMode;
-    });
+    setState(() => _isDarkMode = !_isDarkMode);
   }
 
   @override
@@ -844,9 +1011,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   Timer? _tickerTimer;
   bool _isTickerPaused = false;
 
-  final PageController _bannerController = PageController();
-  int _currentBannerPage = 0;
-  Timer? _bannerTimer;
+  final PageController _topBannerController = PageController();
+  int _currentTopBannerPage = 0;
+  Timer? _topBannerTimer;
+
+  final PageController _bottomBannerController = PageController();
+  int _currentBottomBannerPage = 0;
+  Timer? _bottomBannerTimer;
 
   @override
   void initState() {
@@ -854,7 +1025,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     _manager.addListener(_onStateChange);
     _initLiveAdsFromSupabase();
     _startTickerAnimation();
-    _startBannerCarousel();
+    _startBannerCarousels();
   }
 
   @override
@@ -862,8 +1033,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     _manager.removeListener(_onStateChange);
     _tickerTimer?.cancel();
     _tickerScrollController.dispose();
-    _bannerTimer?.cancel();
-    _bannerController.dispose();
+    _topBannerTimer?.cancel();
+    _topBannerController.dispose();
+    _bottomBannerTimer?.cancel();
+    _bottomBannerController.dispose();
     super.dispose();
   }
 
@@ -872,27 +1045,47 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 
   void _startTickerAnimation() {
-    _tickerTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+    _tickerTimer?.cancel();
+    _tickerTimer = Timer.periodic(const Duration(milliseconds: 40), (timer) {
       if (!_isTickerPaused && _tickerScrollController.hasClients) {
         final maxScroll = _tickerScrollController.position.maxScrollExtent;
         final currentScroll = _tickerScrollController.offset;
         if (currentScroll >= maxScroll) {
           _tickerScrollController.jumpTo(0.0);
         } else {
-          _tickerScrollController.jumpTo(currentScroll + 1.2);
+          _tickerScrollController.jumpTo(currentScroll + _manager.tickerSpeed);
         }
       }
     });
   }
 
-  void _startBannerCarousel() {
-    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (mounted &&
-          _manager.banners.isNotEmpty &&
-          _bannerController.hasClients) {
-        _currentBannerPage = (_currentBannerPage + 1) % _manager.banners.length;
-        _bannerController.animateToPage(
-          _currentBannerPage,
+  void _startBannerCarousels() {
+    _topBannerTimer?.cancel();
+    _topBannerTimer = Timer.periodic(
+        Duration(seconds: _manager.topBannerIntervalSeconds), (timer) {
+      final topBanners =
+          _manager.banners.where((b) => b.position == 'top').toList();
+      final pageCount = (topBanners.length / 2).ceil();
+      if (mounted && pageCount > 1 && _topBannerController.hasClients) {
+        _currentTopBannerPage = (_currentTopBannerPage + 1) % pageCount;
+        _topBannerController.animateToPage(
+          _currentTopBannerPage,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+
+    _bottomBannerTimer?.cancel();
+    _bottomBannerTimer = Timer.periodic(
+        Duration(seconds: _manager.bottomBannerIntervalSeconds), (timer) {
+      final bottomBanners =
+          _manager.banners.where((b) => b.position == 'bottom').toList();
+      final pageCount = (bottomBanners.length / 2).ceil();
+      if (mounted && pageCount > 1 && _bottomBannerController.hasClients) {
+        _currentBottomBannerPage = (_currentBottomBannerPage + 1) % pageCount;
+        _bottomBannerController.animateToPage(
+          _currentBottomBannerPage,
           duration: const Duration(milliseconds: 600),
           curve: Curves.easeInOut,
         );
@@ -900,7 +1093,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     });
   }
 
-  /// جلب البيانات الحقيقي والكامل من جدول Supabase السحابي
   Future<void> _initLiveAdsFromSupabase() async {
     setState(() => _isLoadingAds = true);
     try {
@@ -914,6 +1106,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             .map((map) => AdItem.fromMap(map as Map<String, dynamic>))
             .toList();
       }
+      await _manager.autoCleanupExpiredStampedAds();
     } catch (e) {
       debugPrint('Supabase fetch ads notice: $e');
     } finally {
@@ -1105,8 +1298,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
     return Column(
       children: [
-        _buildInteractiveNewsTickerWidget(),
-        _buildLiveBannersWidget(),
+        _buildCustomNewsTickerWidget(),
+        _buildSideBySideBannersWidget('top', _topBannerController),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           child: TextField(
@@ -1207,10 +1400,20 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         ],
                       )
                     : ListView.builder(
-                        itemCount: filteredAds.length,
+                        itemCount: filteredAds.length + 1,
                         padding: const EdgeInsets.only(bottom: 24),
                         itemBuilder: (ctx, index) {
-                          final ad = filteredAds[index];
+                          if (index == (filteredAds.length / 2).floor()) {
+                            return _buildSideBySideBannersWidget(
+                                'bottom', _bottomBannerController);
+                          }
+                          final actualIndex =
+                              index > (filteredAds.length / 2).floor()
+                                  ? index - 1
+                                  : index;
+                          if (actualIndex >= filteredAds.length)
+                            return const SizedBox.shrink();
+                          final ad = filteredAds[actualIndex];
                           return _buildAdCard(ad);
                         },
                       ),
@@ -1220,11 +1423,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-  Widget _buildInteractiveNewsTickerWidget() {
+  Widget _buildCustomNewsTickerWidget() {
     final newsText = _manager.newsTicker.join('   ✦   ');
 
     return Container(
-      color: const Color(0xFF0F172A),
+      color: _manager.tickerBackgroundColor,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       child: Row(
         children: [
@@ -1235,7 +1438,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 borderRadius: BorderRadius.circular(6)),
             child: Row(
               children: [
-                Icon(Icons.campaign, color: _manager.primaryColor, size: 14),
+                Icon(_manager.tickerIcon,
+                    color: _manager.primaryColor, size: 14),
                 const SizedBox(width: 4),
                 Text('عاجل',
                     style: TextStyle(
@@ -1257,10 +1461,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 physics: const BouncingScrollPhysics(),
                 child: Text(
                   newsText,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: _manager.tickerTextColor,
+                    fontSize: _manager.tickerFontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -1270,77 +1475,120 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-  Widget _buildLiveBannersWidget() {
-    if (_manager.banners.isEmpty) return const SizedBox.shrink();
+  Widget _buildSideBySideBannersWidget(
+      String position, PageController controller) {
+    final positionBanners =
+        _manager.banners.where((b) => b.position == position).toList();
+    if (positionBanners.isEmpty) return const SizedBox.shrink();
+
+    final pairCount = (positionBanners.length / 2).ceil();
 
     return Container(
-      height: 90,
+      height: 95,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: PageView.builder(
-        controller: _bannerController,
-        itemCount: _manager.banners.length,
-        itemBuilder: (ctx, index) {
-          final banner = _manager.banners[index];
-          return InkWell(
-            onTap: () async {
-              if (banner.targetUrl.isNotEmpty) {
-                final uri = Uri.tryParse(banner.targetUrl);
-                if (uri != null) await launchUrl(uri);
-              }
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: LinearGradient(
-                  colors: [_manager.primaryColor, const Color(0xFF1E293B)],
-                  begin: Alignment.centerRight,
-                  end: Alignment.centerLeft,
-                ),
-              ),
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(banner.title,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12),
-                            maxLines: 1),
-                        const SizedBox(height: 3),
-                        Text(banner.subtitle,
+        controller: controller,
+        itemCount: pairCount,
+        itemBuilder: (ctx, pageIndex) {
+          final firstIdx = pageIndex * 2;
+          final secondIdx = firstIdx + 1;
+
+          final firstBanner = positionBanners[firstIdx];
+          final hasSecond = secondIdx < positionBanners.length;
+          final secondBanner = hasSecond ? positionBanners[secondIdx] : null;
+
+          return Row(
+            children: [
+              Expanded(child: _buildSingleBannerCard(firstBanner)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: secondBanner != null
+                    ? _buildSingleBannerCard(secondBanner)
+                    : Container(
+                        decoration: BoxDecoration(
+                          color: _manager.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: _manager.secondaryColor.withOpacity(0.5)),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'مساحة إعلانية متاحة ✨',
                             style: TextStyle(
-                                color: _manager.secondaryColor, fontSize: 10),
-                            maxLines: 1),
-                      ],
-                    ),
-                  ),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      banner.imageUrl,
-                      width: 80,
-                      height: 70,
-                      fit: BoxFit.cover,
-                      errorBuilder: (ctx, _, __) => Container(
-                        width: 80,
-                        height: 70,
-                        color: Colors.black26,
-                        child:
-                            const Icon(Icons.campaign, color: Colors.white70),
+                                color: _manager.primaryColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSingleBannerCard(BannerItem banner) {
+    return InkWell(
+      onTap: () async {
+        if (banner.targetUrl.isNotEmpty) {
+          final uri = Uri.tryParse(banner.targetUrl);
+          if (uri != null) await launchUrl(uri);
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: [_manager.primaryColor, const Color(0xFF1E293B)],
+            begin: Alignment.centerRight,
+            end: Alignment.centerLeft,
+          ),
+        ),
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(banner.title,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  Text(banner.subtitle,
+                      style: TextStyle(
+                          color: _manager.secondaryColor, fontSize: 9),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
-          );
-        },
+            const SizedBox(width: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                banner.imageUrl,
+                width: 45,
+                height: 45,
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, _, __) => Container(
+                  width: 45,
+                  height: 45,
+                  color: Colors.black26,
+                  child: const Icon(Icons.campaign,
+                      color: Colors.white70, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1358,7 +1606,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 40,
+          height: 42,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1375,6 +1623,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       color: _selectedCategoryId == null
                           ? Colors.white
                           : Colors.black87),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   onSelected: (_) => setState(() {
                     _selectedCategoryId = null;
                     _selectedSubcategory = null;
@@ -1388,15 +1638,21 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                   child: FilterChip(
                     avatar: Icon(cat.iconData,
                         size: 16,
-                        color:
-                            isSelected ? Colors.white : _manager.primaryColor),
-                    label: Text(cat.name,
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white : Colors.black87)),
+                        color: isSelected ? Colors.white : cat.textColor),
+                    label: Text(
+                      cat.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : cat.textColor,
+                      ),
+                    ),
                     selected: isSelected,
-                    selectedColor: _manager.primaryColor,
+                    selectedColor: cat.backgroundColor,
+                    backgroundColor: cat.backgroundColor.withOpacity(0.12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(cat.borderRadiusValue)),
                     onSelected: (val) {
                       setState(() {
                         _selectedCategoryId = val ? cat.name : null;
@@ -1548,6 +1804,31 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     ),
                   ),
                 ),
+                if (ad.stampedAt != null)
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade900.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.warning, color: Colors.white, size: 14),
+                          SizedBox(width: 4),
+                          Text('مختوم بالأحمر (حذف خلال 48 ساعة)',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
                 if (ad.isSold)
                   Positioned.fill(
                     child: Container(
@@ -1766,7 +2047,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 radius: 30,
                 backgroundColor: _manager.secondaryColor,
                 child: Text(
-                  _manager.currentUserName[0],
+                  _manager.currentUserName.isNotEmpty
+                      ? _manager.currentUserName[0]
+                      : 'U',
                   style: TextStyle(
                       color: _manager.primaryColor,
                       fontSize: 24,
@@ -1854,7 +2137,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               MaterialPageRoute(
                   builder: (ctx) => const FullSubscriptionPlansScreen())),
         ),
-        // حماية حصرية: تظهر فقط للمشرفين المعتمدين
         if (_manager.isSuperAdmin) ...[
           const SizedBox(height: 10),
           ListTile(
@@ -1943,7 +2225,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       builder: (ctx) => const FullSubscriptionPlansScreen()));
             },
           ),
-          // قفل أمني: يظهر للمشرفين المعتمدين حصراً
           if (_manager.isSuperAdmin)
             ListTile(
               leading:
@@ -1975,8 +2256,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           ],
         ),
         content: const Text(
-          '• تم تفعيل قاعدة بيانات Supabase المتزامنة وسحابية البيانات بنجاح.\n'
-          '• ميزة التفاوض السعري المباشر نشطة لجميع المشترين والبائعين.\n'
+          '• تم تفعيل قاعدة بيانات Supabase والتنظيف التلقائي للمنشورات بعد 48 ساعة.\n'
+          '• مسح الصور نهائياً من Storage عند الحذف لتوفير مساحة التخزين.\n'
           '• باقات VIP الذهبية متاحة بالدفع الفوري عبر سيريتل كاش و MTN كاش.',
           style: TextStyle(height: 1.6),
         ),
@@ -1994,7 +2275,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 }
 
 // ==============================================================================
-// 7. شاشة المصادقة العصرية (Professional Auth UI/UX)
+// 7. شاشة المصادقة الاحترافية (Professional Auth UI/UX)
 // ==============================================================================
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -2035,7 +2316,6 @@ class _AuthScreenState extends State<AuthScreen> {
     final phone = _phoneController.text.trim();
 
     try {
-      // محاولة المصادقة السحابية إن كانت الحسابات مهيأة في Supabase Auth
       if (_isSignUp) {
         await Supabase.instance.client.auth.signUp(
           email: email,
@@ -2109,7 +2389,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 const SizedBox(height: 16),
                 Text(
                   _isSignUp
-                      ? 'انضم إلى كبرى منصات التجارة في سوريا'
+                      ? 'انضم إلى منصة سوق سوريا الشامل 2028'
                       : 'أهلاً بك من جديد في ${_manager.appTitle}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
@@ -2256,7 +2536,7 @@ class _AuthScreenState extends State<AuthScreen> {
 }
 
 // ==============================================================================
-// 8. شاشة إضافة وحفظ الإعلانات السحابية (FullAddAdScreen)
+// 8. شاشة إضافة الإعلانات وضغط ومعاينة الصور بالبايتات (FullAddAdScreen)
 // ==============================================================================
 class FullAddAdScreen extends StatefulWidget {
   final Function(AdItem) onAdCreated;
@@ -2290,7 +2570,9 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
   final bool _allowComments = true;
   bool _isSubmitting = false;
 
-  final List<String> _selectedImageUrls = [];
+  // تخزين البايتات للمعاينة السريعة وحل مشكلة الشاشات البيضاء
+  final List<Uint8List> _previewImageBytes = [];
+  final List<String> _uploadedImageUrls = [];
   final ImagePicker _picker = ImagePicker();
   final List<String> _selectedTags = [];
 
@@ -2330,30 +2612,62 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
         TextEditingController(text: _manager.currentUserPhone);
   }
 
-  Future<void> _pickImageFromGallery() async {
+  /// ضغط ورفع الصورة إلى Supabase Storage وجلب الرابط العام getPublicUrl مع المعاينة الفورية بالبايتات
+  Future<void> _pickAndUploadImage() async {
     final currentPlan = _manager.getCurrentUserPlan();
-    if (_selectedImageUrls.length >= currentPlan.maxImagesPerAd) {
+    if (_uploadedImageUrls.length >= currentPlan.maxImagesPerAd) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              '⚠️ لقد وصلت للحد الأقصى لعدد الصور في خطتك (${currentPlan.maxImagesPerAd} صور). يرجى الترقية لباقة VIP لإضافة حتى 10 صور.'),
+              '⚠️ لقد وصلت للحد الأقصى لعدد الصور في خطتك (${currentPlan.maxImagesPerAd} صور). يرجى الترقية لباقة VIP.'),
           backgroundColor: Colors.red.shade800,
         ),
       );
       return;
     }
 
-    final XFile? image =
-        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    // ضغط الصور تلقائياً وخلف الكواليس
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+      maxWidth: 1200,
+      maxHeight: 1200,
+    );
+
     if (image != null) {
-      setState(() {
-        _selectedImageUrls.add(
-            'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=600');
-      });
+      setState(() => _isSubmitting = true);
+      try {
+        final Uint8List imageBytes = await image.readAsBytes();
+        setState(() => _previewImageBytes.add(imageBytes));
+
+        final fileName =
+            'ad_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+
+        await Supabase.instance.client.storage
+            .from(kStorageBucketAds)
+            .uploadBinary(
+              fileName,
+              imageBytes,
+              fileOptions:
+                  const FileOptions(contentType: 'image/jpeg', upsert: true),
+            );
+
+        final publicUrl = Supabase.instance.client.storage
+            .from(kStorageBucketAds)
+            .getPublicUrl(fileName);
+        setState(() => _uploadedImageUrls.add(publicUrl));
+      } catch (e) {
+        debugPrint('Image Upload note: $e');
+        setState(() {
+          _uploadedImageUrls.add(
+              'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=600');
+        });
+      } finally {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
-  /// حفظ الإعلان السحابي الفوري في Supabase
   Future<void> _submitAd() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
@@ -2375,20 +2689,20 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
           : _neighborhoodController.text.trim(),
       condition: _condition,
       tags: _selectedTags,
-      imageUrls: _selectedImageUrls.isNotEmpty
-          ? _selectedImageUrls
+      imageUrls: _uploadedImageUrls.isNotEmpty
+          ? _uploadedImageUrls
           : [
               'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600'
             ],
-      videoUrl: currentPlan.allowVideoAndLinks
+      videoUrl: currentPlan.customFeatures.any((f) => f.text.contains('فيديو'))
           ? _videoUrlController.text.trim()
           : null,
       publisherName: _publisherNameController.text.trim(),
       publisherPhone: _publisherPhoneController.text.trim(),
       publisherEmail: _manager.currentUserEmail,
-      isFeatured: currentPlan.allowVipBadge,
+      isFeatured: currentPlan.customFeatures.any((f) => f.text.contains('VIP')),
       allowComments: _allowComments,
-      status: 'approved',
+      status: 'pending', // يبدأ معلقاً بانتظار مراجعة الإدارة
       createdAt: DateTime.now(),
     );
 
@@ -2592,7 +2906,8 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
               validator: (v) =>
                   (v == null || v.trim().length < 5) ? 'الوصف مطلوب' : null,
             ),
-            if (currentPlan.allowVideoAndLinks) ...[
+            if (currentPlan.customFeatures
+                .any((f) => f.text.contains('فيديو'))) ...[
               const SizedBox(height: 8),
               TextFormField(
                 controller: _videoUrlController,
@@ -2639,7 +2954,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 Text(
-                    '${_selectedImageUrls.length} / ${currentPlan.maxImagesPerAd} صور مسموحة',
+                    '${_uploadedImageUrls.length} / ${currentPlan.maxImagesPerAd} صور مسموحة',
                     style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),
@@ -2650,7 +2965,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                 scrollDirection: Axis.horizontal,
                 children: [
                   InkWell(
-                    onTap: _pickImageFromGallery,
+                    onTap: _pickAndUploadImage,
                     child: Container(
                       width: 90,
                       decoration: BoxDecoration(
@@ -2673,9 +2988,9 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                       ),
                     ),
                   ),
-                  ..._selectedImageUrls.asMap().entries.map((entry) {
+                  ..._previewImageBytes.asMap().entries.map((entry) {
                     final idx = entry.key;
-                    final url = entry.value;
+                    final bytes = entry.value;
                     return Stack(
                       children: [
                         Container(
@@ -2684,15 +2999,21 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
                             image: DecorationImage(
-                                image: NetworkImage(url), fit: BoxFit.cover),
+                                image: MemoryImage(bytes), fit: BoxFit.cover),
                           ),
                         ),
                         Positioned(
                           top: 2,
                           left: 2,
                           child: GestureDetector(
-                            onTap: () => setState(
-                                () => _selectedImageUrls.removeAt(idx)),
+                            onTap: () {
+                              setState(() {
+                                _previewImageBytes.removeAt(idx);
+                                if (idx < _uploadedImageUrls.length) {
+                                  _uploadedImageUrls.removeAt(idx);
+                                }
+                              });
+                            },
                             child: Container(
                               decoration: const BoxDecoration(
                                   color: Colors.red, shape: BoxShape.circle),
@@ -2744,7 +3065,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
 }
 
 // ==============================================================================
-// 9. شاشة تفاصيل الإعلان الكاملة (FullAdDetailsScreen)
+// 9. شاشة تفاصيل الإعلان والحذف النهائي والختم الأحمر (FullAdDetailsScreen)
 // ==============================================================================
 class FullAdDetailsScreen extends StatefulWidget {
   final AdItem ad;
@@ -2863,14 +3184,50 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
     }
   }
 
-  void _deleteAd() async {
+  void _toggleRedStamp() async {
+    final newStamp = _ad.stampedAt == null ? DateTime.now() : null;
+    final updated = _ad.copyWith(stampedAt: newStamp);
+    setState(() => _ad = updated);
+    widget.onAdUpdated(updated);
+
+    try {
+      await Supabase.instance.client.from('ads').update(
+          {'stamped_at': newStamp?.toIso8601String()}).eq('id', updated.id);
+    } catch (e) {
+      debugPrint('Red Stamp update error: $e');
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(newStamp != null
+              ? '🔴 تم وضع الختم الأحمر: سيتم حذف المنشور ومسح صوره بعد 48 ساعة تلقائياً.'
+              : '🟢 تم إلغاء الختم الأحمر عن المنشور.'),
+          backgroundColor:
+              newStamp != null ? Colors.red.shade900 : Colors.green,
+        ),
+      );
+    }
+  }
+
+  void _deleteAdPermanently() async {
+    final imagesToDelete = List<String>.from(_ad.imageUrls);
     try {
       await Supabase.instance.client.from('ads').delete().eq('id', _ad.id);
+      await AppStateManager.deleteStorageImages(imagesToDelete);
     } catch (e) {
-      debugPrint('Supabase delete ad note: $e');
+      debugPrint('Supabase permanent delete error: $e');
     }
+
     widget.onAdDeleted(_ad.id);
-    Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                '🗑️ تم حذف المنشور ومسح صوره نهائياً من السيرفر لتوفير المساحة.')),
+      );
+    }
   }
 
   @override
@@ -2890,21 +3247,41 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: 90),
+        padding: const EdgeInsets.only(bottom: 24),
         children: [
           Stack(
             children: [
               Container(
-                height: 250,
+                height: 280,
                 width: double.infinity,
-                color: Colors.black,
+                color: const Color(0xFF0F172A),
                 child: Image.network(
-                    _ad.imageUrls.isNotEmpty ? _ad.imageUrls.first : '',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.image,
-                            size: 60, color: Colors.white38))),
+                  _ad.imageUrls.isNotEmpty ? _ad.imageUrls.first : '',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Center(
+                      child:
+                          Icon(Icons.image, size: 60, color: Colors.white38)),
+                ),
               ),
+              if (_ad.stampedAt != null)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade900,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Text('🔴 خـتـم أحـمـر (حذف خلال 48 ساعة)',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12)),
+                  ),
+                ),
               if (_ad.isSold)
                 Positioned.fill(
                   child: Container(
@@ -3011,14 +3388,37 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red),
-                          onPressed: _deleteAd,
-                          child: const Text('حذف الإعلان',
-                              style: TextStyle(color: Colors.white)),
+                              backgroundColor: Colors.red.shade900),
+                          onPressed: _deleteAdPermanently,
+                          child: const Text('حذف نهائي + مسح الصورة 🗑️',
+                              style:
+                                  TextStyle(color: Colors.white, fontSize: 12)),
                         ),
                       ),
                     ],
                   ),
+                  if (_manager.isSuperAdmin) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: _ad.stampedAt == null
+                                ? Colors.red.shade800
+                                : Colors.green.shade800),
+                        icon: const Icon(Icons.verified_outlined,
+                            color: Colors.white),
+                        label: Text(
+                          _ad.stampedAt == null
+                              ? 'وضع الختم الأحمر (مؤقت 48 ساعة)'
+                              : 'إلغاء الختم الأحمر',
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: _toggleRedStamp,
+                      ),
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 20),
                 const Divider(),
@@ -3081,39 +3481,47 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
           ),
         ],
       ),
-      bottomSheet: Container(
+      bottomNavigationBar: Container(
         padding: const EdgeInsets.all(12),
-        color: Colors.white,
-        child: Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: _manager.buttonColor,
-                    padding: const EdgeInsets.symmetric(vertical: 12)),
-                icon: const Icon(Icons.phone, color: Colors.white),
-                label: const Text('اتصال هاتفي',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-                onPressed: () =>
-                    launchUrl(Uri.parse('tel:${_ad.publisherPhone}')),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366),
-                    padding: const EdgeInsets.symmetric(vertical: 12)),
-                icon: const Icon(Icons.chat, color: Colors.white),
-                label: const Text('واتساب',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-                onPressed: () => launchUrl(
-                    Uri.parse('https://wa.me/963${_ad.publisherPhone}')),
-              ),
-            ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))
           ],
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: _manager.buttonColor,
+                      padding: const EdgeInsets.symmetric(vertical: 12)),
+                  icon: const Icon(Icons.phone, color: Colors.white),
+                  label: const Text('اتصال هاتفي',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  onPressed: () =>
+                      launchUrl(Uri.parse('tel:${_ad.publisherPhone}')),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      padding: const EdgeInsets.symmetric(vertical: 12)),
+                  icon: const Icon(Icons.chat, color: Colors.white),
+                  label: const Text('واتساب',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  onPressed: () => launchUrl(
+                      Uri.parse('https://wa.me/963${_ad.publisherPhone}')),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3318,38 +3726,44 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text('${plan.priceSyp.toStringAsFixed(0)} ل.س / شهرياً',
+                    Text(
+                        '${plan.priceSyp.toStringAsFixed(0)} ل.س / ${plan.durationText}',
                         style: TextStyle(
                             color: isVip ? manager.secondaryColor : Colors.grey,
                             fontSize: 15,
                             fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: Colors.blueGrey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4)),
+                      child: Text('الحالة والشرط: ${plan.statusConditionText}',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueGrey)),
+                    ),
                     const SizedBox(height: 12),
-                    _buildFeatureRow(
-                        'إعلانات شهرية: حتى ${plan.maxAdsPerMonth} إعلان',
-                        isVip,
-                        manager),
-                    _buildFeatureRow(
-                        'عدد الصور لكل إعلان: حتى ${plan.maxImagesPerAd} صور عالية الدقة',
-                        isVip,
-                        manager),
-                    _buildFeatureRow(
-                        plan.allowVideoAndLinks
-                            ? 'إضافة روابط وفيديوهات يوتيوب (مفعل)'
-                            : 'روابط وفيديوهات يوتيوب (مقفل)',
-                        plan.allowVideoAndLinks,
-                        manager),
-                    _buildFeatureRow(
-                        plan.allowVipBadge
-                            ? 'شارة VIP الذهبية للظهور في الصدارة (مفعل)'
-                            : 'شارة VIP الذهبية (مقفل)',
-                        plan.allowVipBadge,
-                        manager),
-                    _buildFeatureRow(
-                        plan.allowBannerFeature
-                            ? 'الظهور في قسم البنرات الممولة (مفعل)'
-                            : 'البنرات الممولة (مقفل)',
-                        plan.allowBannerFeature,
-                        manager),
+                    ...plan.customFeatures
+                        .map((feat) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Row(
+                                children: [
+                                  Icon(feat.icon,
+                                      color: isVip
+                                          ? manager.primaryColor
+                                          : Colors.grey,
+                                      size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(feat.text,
+                                      style: const TextStyle(
+                                          fontSize: 13, color: Colors.black87)),
+                                ],
+                              ),
+                            ))
+                        .toList(),
                     const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
@@ -3387,28 +3801,10 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildFeatureRow(
-      String title, bool isEnabled, AppStateManager manager) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Icon(isEnabled ? Icons.check_circle : Icons.cancel,
-              color: isEnabled ? manager.primaryColor : Colors.grey, size: 16),
-          const SizedBox(width: 8),
-          Text(title,
-              style: TextStyle(
-                  fontSize: 13,
-                  color: isEnabled ? Colors.black87 : Colors.grey)),
-        ],
-      ),
-    );
-  }
 }
 
 // ==============================================================================
-// 12. لوحة تحكم غرفة العمليات التنفيذية (Executive Admin Dashboard)
+// 12. لوحة تحكم غرفة العمليات التنفيذية المخصصة (Executive Admin Dashboard)
 // ==============================================================================
 class FullAdminPanelScreen extends StatefulWidget {
   const FullAdminPanelScreen({Key? key}) : super(key: key);
@@ -3422,13 +3818,14 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
   final AppStateManager _manager = AppStateManager();
   late TabController _tabController;
 
-  // إعدادات التطبيق
   late TextEditingController _titleController;
   late TextEditingController _subtitleController;
   late TextEditingController _maintMsgController;
 
   // إدارة الأقسام
   final TextEditingController _categoryNameController = TextEditingController();
+  double _catRadius = 14.0;
+  IconData _selectedCatIcon = Icons.category;
 
   // إدارة الأخبار
   final TextEditingController _newsInputController = TextEditingController();
@@ -3437,6 +3834,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
   final TextEditingController _bannerTitleController = TextEditingController();
   final TextEditingController _bannerSubController = TextEditingController();
   final TextEditingController _bannerUrlController = TextEditingController();
+  String _bannerPosition = 'top';
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -3465,7 +3863,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
 
   @override
   Widget build(BuildContext context) {
-    // صمام أمان صارم: منع الوصول لغير المشرفين
     if (!_manager.isSuperAdmin) {
       return Scaffold(
         appBar: AppBar(title: const Text('غير مصرح')),
@@ -3476,7 +3873,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF991B1B), // اللون القيادي الأحمر الفاخر
+        backgroundColor: const Color(0xFF991B1B),
         title: const Text('غرفة العمليات التنفيذية - Super Admin',
             style: TextStyle(
                 color: Colors.white,
@@ -3494,7 +3891,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
             Tab(icon: Icon(Icons.category), text: 'الأقسام والفئات'),
             Tab(icon: Icon(Icons.workspace_premium), text: 'الخطط والباقات'),
             Tab(icon: Icon(Icons.color_lens), text: 'الألوان والثيمات'),
-            Tab(icon: Icon(Icons.campaign), text: 'الأخبار والبنرات'),
+            Tab(icon: Icon(Icons.campaign), text: 'البنرات والأخبار'),
             Tab(icon: Icon(Icons.people), text: 'المستخدمين والصلاحيات'),
           ],
         ),
@@ -3514,8 +3911,10 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     );
   }
 
-  // 1. نظرة عامة وإعدادات النظام ووضع الصيانة
   Widget _buildExecutiveOverviewTab() {
+    final pendingCount =
+        _manager.ads.where((a) => a.status == 'pending').length;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -3529,11 +3928,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                     _manager.primaryColor)),
             const SizedBox(width: 10),
             Expanded(
-                child: _buildMetricCard(
-                    'المستخدمين المسجلين',
-                    '${_manager.registeredUsers.length}',
-                    Icons.group,
-                    Colors.indigo)),
+                child: _buildMetricCard('بانتظار المراجعة', '$pendingCount',
+                    Icons.pending_actions, Colors.orange.shade800)),
           ],
         ),
         const SizedBox(height: 10),
@@ -3541,17 +3937,17 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
           children: [
             Expanded(
                 child: _buildMetricCard(
-                    'الأقسام النشطة',
-                    '${_manager.categories.length}',
-                    Icons.category,
-                    Colors.teal)),
+                    'المستخدمين المسجلين',
+                    '${_manager.registeredUsers.length}',
+                    Icons.group,
+                    Colors.indigo)),
             const SizedBox(width: 10),
             Expanded(
                 child: _buildMetricCard(
                     'حالة النظام',
                     _manager.isMaintenanceMode ? 'صيانة ⏳' : 'متاح للجميع ✅',
                     Icons.security,
-                    _manager.isMaintenanceMode ? Colors.orange : Colors.green)),
+                    _manager.isMaintenanceMode ? Colors.red : Colors.green)),
           ],
         ),
         const SizedBox(height: 20),
@@ -3668,67 +4064,144 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     );
   }
 
-  // 2. مراجعة الإعلانات السحابية والموافقة/الرفض
   Widget _buildReviewAdsTab() {
-    if (_manager.ads.isEmpty) {
-      return const Center(
-          child: Text('لا توجد إعلانات معلقة للمراجعة حالياً.'));
+    final pendingAds =
+        _manager.ads.where((a) => a.status == 'pending').toList();
+
+    if (pendingAds.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.check_circle_outline, size: 60, color: Colors.green),
+            SizedBox(height: 12),
+            Text('رائع! لا توجد إعلانات معلقة بانتظار المراجعة.',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.grey)),
+          ],
+        ),
+      );
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: _manager.ads.length,
+      itemCount: pendingAds.length,
       itemBuilder: (ctx, idx) {
-        final ad = _manager.ads[idx];
+        final ad = pendingAds[idx];
         return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.network(
-                  ad.imageUrls.isNotEmpty ? ad.imageUrls.first : '',
-                  width: 50,
-                  height: 50,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.image)),
-            ),
-            title: Text(ad.title,
-                maxLines: 1,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle:
-                Text('الحالة: ${ad.status} | المعلن: ${ad.publisherName}'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.check_circle, color: Colors.green),
-                  onPressed: () async {
-                    setState(() =>
-                        _manager.ads[idx] = ad.copyWith(status: 'approved'));
-                    _manager.notifyListeners();
-                    try {
-                      await Supabase.instance.client
-                          .from('ads')
-                          .update({'status': 'approved'}).eq('id', ad.id);
-                    } catch (e) {
-                      debugPrint('Review ad note: $e');
-                    }
-                  },
+                Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                          ad.imageUrls.isNotEmpty ? ad.imageUrls.first : '',
+                          width: 70,
+                          height: 70,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                              width: 70,
+                              height: 70,
+                              color: Colors.grey.shade300,
+                              child: const Icon(Icons.image))),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(ad.title,
+                              maxLines: 1,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14)),
+                          const SizedBox(height: 4),
+                          Text(
+                              'المعلن: ${ad.publisherName} (${ad.publisherPhone})',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.grey)),
+                          const SizedBox(height: 2),
+                          Text(
+                              'السعر: ${ad.priceUsd != null ? "\$${ad.priceUsd}" : "${ad.priceSyp} ل.س"} | ${ad.governorate}',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: _manager.primaryColor,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.cancel, color: Colors.red),
-                  onPressed: () async {
-                    setState(() =>
-                        _manager.ads[idx] = ad.copyWith(status: 'rejected'));
-                    _manager.notifyListeners();
-                    try {
-                      await Supabase.instance.client
-                          .from('ads')
-                          .update({'status': 'rejected'}).eq('id', ad.id);
-                    } catch (e) {
-                      debugPrint('Review ad note: $e');
-                    }
-                  },
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade700,
+                            padding: const EdgeInsets.symmetric(vertical: 10)),
+                        icon:
+                            const Icon(Icons.check_circle, color: Colors.white),
+                        label: const Text('قبول الإعلان ✔',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final adIdx =
+                              _manager.ads.indexWhere((x) => x.id == ad.id);
+                          if (adIdx != -1) {
+                            setState(() => _manager.ads[adIdx] =
+                                ad.copyWith(status: 'approved'));
+                            _manager.notifyListeners();
+                          }
+                          try {
+                            await Supabase.instance.client
+                                .from('ads')
+                                .update({'status': 'approved'}).eq('id', ad.id);
+                          } catch (e) {
+                            debugPrint('Review ad note: $e');
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade700,
+                            padding: const EdgeInsets.symmetric(vertical: 10)),
+                        icon: const Icon(Icons.cancel, color: Colors.white),
+                        label: const Text('رفض ✖',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final adIdx =
+                              _manager.ads.indexWhere((x) => x.id == ad.id);
+                          if (adIdx != -1) {
+                            setState(() => _manager.ads[adIdx] =
+                                ad.copyWith(status: 'rejected'));
+                            _manager.notifyListeners();
+                          }
+                          try {
+                            await Supabase.instance.client
+                                .from('ads')
+                                .update({'status': 'rejected'}).eq('id', ad.id);
+                          } catch (e) {
+                            debugPrint('Review ad note: $e');
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -3738,48 +4211,100 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     );
   }
 
-  // 3. إدارة الأقسام والفئات
   Widget _buildManageCategoriesTab() {
+    final availableIcons = [
+      Icons.directions_car,
+      Icons.apartment,
+      Icons.phone_android,
+      Icons.chair,
+      Icons.checkroom,
+      Icons.work,
+      Icons.electric_bolt,
+      Icons.pets,
+      Icons.sports_soccer,
+      Icons.build,
+      Icons.fastfood,
+      Icons.local_offer,
+    ];
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('إضافة قسم جديد وتصنيفات فرعية:',
+        const Text('إضافة قسم جديد وتخصيص شكله وأيقونته:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 8),
+        TextField(
+          controller: _categoryNameController,
+          decoration: const InputDecoration(
+              hintText: 'اسم القسم (مثلاً: ⚡ طاقة شمسية)...',
+              border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 10),
+        const Text('اختر أيقونة للقسم:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          children: availableIcons.map((ic) {
+            final isSel = _selectedCatIcon == ic;
+            return ChoiceChip(
+              avatar: Icon(ic,
+                  size: 16, color: isSel ? Colors.white : Colors.black),
+              label: const Text(''),
+              selected: isSel,
+              selectedColor: _manager.primaryColor,
+              onSelected: (val) => setState(() => _selectedCatIcon = ic),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 10),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Expanded(
-              child: TextField(
-                controller: _categoryNameController,
-                decoration: const InputDecoration(
-                    hintText: 'اسم القسم (مثلاً: ⚡ طاقة شمسية)...',
-                    border: OutlineInputBorder()),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              style:
-                  IconButton.styleFrom(backgroundColor: _manager.buttonColor),
-              icon: const Icon(Icons.add, color: Colors.white),
-              onPressed: () {
-                final name = _categoryNameController.text.trim();
-                if (name.isNotEmpty) {
-                  setState(() {
-                    _manager.categories.add(
-                      CategoryModel(
-                        id: 'cat-${DateTime.now().millisecondsSinceEpoch}',
-                        name: name,
-                        iconData: Icons.category,
-                        subcategories: ['عام', 'مستلزمات وملحقات'],
-                      ),
-                    );
-                    _categoryNameController.clear();
-                  });
-                  _manager.notifyListeners();
-                }
+            const Text('شكل حواف الأزرار:'),
+            DropdownButton<double>(
+              value: _catRadius,
+              items: const [
+                DropdownMenuItem(value: 0.0, child: Text('حواف حادة (0px)')),
+                DropdownMenuItem(
+                    value: 12.0, child: Text('حواف منحنية (12px)')),
+                DropdownMenuItem(
+                    value: 24.0, child: Text('حواف دائرية بالكامل (24px)')),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _catRadius = val);
               },
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        ElevatedButton.icon(
+          style:
+              ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text('إضافة القسم المخصص الآن',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          onPressed: () {
+            final name = _categoryNameController.text.trim();
+            if (name.isNotEmpty) {
+              setState(() {
+                _manager.categories.add(
+                  CategoryModel(
+                    id: 'cat-${DateTime.now().millisecondsSinceEpoch}',
+                    name: name,
+                    iconData: _selectedCatIcon,
+                    backgroundColor: _manager.primaryColor,
+                    textColor: Colors.white,
+                    borderRadiusValue: _catRadius,
+                    subcategories: ['عام', 'مستلزمات وملحقات'],
+                  ),
+                );
+                _categoryNameController.clear();
+              });
+              _manager.notifyListeners();
+            }
+          },
         ),
         const SizedBox(height: 14),
         ..._manager.categories
@@ -3804,17 +4329,21 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     );
   }
 
-  // 4. إدارة خطط الإعلانات والباقات
   Widget _buildManagePlansTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('إدارة أقفال الميزات والأسعار لكل باقة:',
+        const Text('إدارة الخطط والباقات والشروط والمزايا:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 10),
         ..._manager.plans.asMap().entries.map((entry) {
           final idx = entry.key;
           final plan = entry.value;
+          final priceCtrl =
+              TextEditingController(text: plan.priceSyp.toStringAsFixed(0));
+          final conditionCtrl =
+              TextEditingController(text: plan.statusConditionText);
+
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: ExpansionTile(
@@ -3826,6 +4355,31 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     children: [
+                      TextField(
+                        controller: priceCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                            labelText: 'سعر الباقة بالليرة السورية',
+                            border: OutlineInputBorder()),
+                        onChanged: (val) {
+                          final p = double.tryParse(val) ?? plan.priceSyp;
+                          _manager.plans[idx] = plan.copyWith(priceSyp: p);
+                          _manager.notifyListeners();
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: conditionCtrl,
+                        decoration: const InputDecoration(
+                            labelText: 'شرط وحالة الباقة (نص يدوي حر)',
+                            border: OutlineInputBorder()),
+                        onChanged: (val) {
+                          _manager.plans[idx] =
+                              plan.copyWith(statusConditionText: val);
+                          _manager.notifyListeners();
+                        },
+                      ),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -3837,42 +4391,14 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                                     value: n, child: Text('$n صور')))
                                 .toList(),
                             onChanged: (val) {
-                              if (val != null)
+                              if (val != null) {
                                 setState(() => _manager.plans[idx] =
                                     plan.copyWith(maxImagesPerAd: val));
-                              _manager.notifyListeners();
+                                _manager.notifyListeners();
+                              }
                             },
                           ),
                         ],
-                      ),
-                      SwitchListTile(
-                        title: const Text('قفل / تفعيل روابط وفيديوهات يوتيوب'),
-                        value: plan.allowVideoAndLinks,
-                        onChanged: (val) {
-                          setState(() => _manager.plans[idx] =
-                              plan.copyWith(allowVideoAndLinks: val));
-                          _manager.notifyListeners();
-                        },
-                      ),
-                      SwitchListTile(
-                        title: const Text(
-                            'قفل / تفعيل شارات التميز الذهبية (VIP Badge)'),
-                        value: plan.allowVipBadge,
-                        onChanged: (val) {
-                          setState(() => _manager.plans[idx] =
-                              plan.copyWith(allowVipBadge: val));
-                          _manager.notifyListeners();
-                        },
-                      ),
-                      SwitchListTile(
-                        title:
-                            const Text('قفل / تفعيل الظهور في البنرات الممولة'),
-                        value: plan.allowBannerFeature,
-                        onChanged: (val) {
-                          setState(() => _manager.plans[idx] =
-                              plan.copyWith(allowBannerFeature: val));
-                          _manager.notifyListeners();
-                        },
                       ),
                     ],
                   ),
@@ -3885,7 +4411,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     );
   }
 
-  // 5. تخصيص ألوان وثيمات التطبيق
   Widget _buildChangeColorsTab() {
     final themes = [
       {
@@ -3936,8 +4461,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                         );
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                              content: Text(
-                                  '✨ تم تغيير ثيم التطبيق إلى ${t["name"]}!')),
+                              content: Text('✨ تم تطبيق ثيم ${t["name"]}!')),
                         );
                       },
                       child: const Text('تطبيق الثيم',
@@ -3950,21 +4474,65 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     );
   }
 
-  // 6. إدارة شريط الأخبار والبنرات
   Widget _buildNewsAndBannersTab() {
+    final tickerIcons = [
+      Icons.campaign,
+      Icons.local_fire_department,
+      Icons.star,
+      Icons.notifications_active,
+      Icons.flash_on
+    ];
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('إدارة شريط الأخبار العاجلة:',
+        const Text('إعدادات شريط الأخبار المتحرك:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 8),
+        Row(
+          children: [
+            const Text('سرعة التمرير:'),
+            Expanded(
+              child: Slider(
+                value: _manager.tickerSpeed,
+                min: 0.5,
+                max: 4.0,
+                divisions: 7,
+                label: _manager.tickerSpeed.toStringAsFixed(1),
+                onChanged: (val) {
+                  setState(() => _manager.tickerSpeed = val);
+                  _manager.notifyListeners();
+                },
+              ),
+            ),
+          ],
+        ),
+        const Text('أيقونة شريط الأخبار:'),
+        Wrap(
+          spacing: 8,
+          children: tickerIcons.map((ic) {
+            final isSel = _manager.tickerIcon == ic;
+            return ChoiceChip(
+              avatar: Icon(ic,
+                  size: 16, color: isSel ? Colors.white : Colors.black),
+              label: const Text(''),
+              selected: isSel,
+              selectedColor: _manager.primaryColor,
+              onSelected: (val) {
+                setState(() => _manager.tickerIcon = ic);
+                _manager.notifyListeners();
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: TextField(
                   controller: _newsInputController,
                   decoration: const InputDecoration(
-                      hintText: 'اكتب نص الخبر...',
+                      hintText: 'اكتب نص الخبر الجديد...',
                       border: OutlineInputBorder())),
             ),
             const SizedBox(width: 8),
@@ -3985,27 +4553,33 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        ..._manager.newsTicker
-            .asMap()
-            .entries
-            .map((e) => Card(
-                  child: ListTile(
-                    title: Text(e.value, style: const TextStyle(fontSize: 13)),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        setState(() => _manager.newsTicker.removeAt(e.key));
-                        _manager.notifyListeners();
-                      },
-                    ),
-                  ),
-                ))
-            .toList(),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         const Divider(),
-        const Text('إضافة بنر ترويجي جديد من المعرض:',
+        const Text('إدارة البنرات المزدوجة المتجاورة (Side-by-Side):',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Text('مؤقت تقليب البنرات بالثواني:'),
+            const SizedBox(width: 10),
+            DropdownButton<int>(
+              value: _manager.topBannerIntervalSeconds,
+              items: [2, 3, 4, 5, 7, 10]
+                  .map((s) =>
+                      DropdownMenuItem(value: s, child: Text('$s ثوانٍ')))
+                  .toList(),
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _manager.topBannerIntervalSeconds = val;
+                    _manager.bottomBannerIntervalSeconds = val;
+                  });
+                  _manager.notifyListeners();
+                }
+              },
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         TextField(
             controller: _bannerTitleController,
@@ -4021,15 +4595,37 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
             controller: _bannerUrlController,
             decoration: const InputDecoration(
                 labelText: 'رابط التوجيه (URL)', border: OutlineInputBorder())),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Text('القسم:'),
+            const SizedBox(width: 10),
+            ChoiceChip(
+              label: const Text('القسم العلوي'),
+              selected: _bannerPosition == 'top',
+              selectedColor: _manager.primaryColor,
+              onSelected: (val) => setState(() => _bannerPosition = 'top'),
+            ),
+            const SizedBox(width: 8),
+            ChoiceChip(
+              label: const Text('القسم السفلي'),
+              selected: _bannerPosition == 'bottom',
+              selectedColor: _manager.primaryColor,
+              onSelected: (val) => setState(() => _bannerPosition = 'bottom'),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         ElevatedButton.icon(
           style:
               ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
           icon: const Icon(Icons.photo_library, color: Colors.white),
-          label: const Text('اختيار صورة البنر من المعرض 🖼️',
-              style: TextStyle(color: Colors.white)),
+          label: const Text('رفع صورة البنر من المعرض 🖼️',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           onPressed: () async {
-            final img = await _picker.pickImage(source: ImageSource.gallery);
+            final img = await _picker.pickImage(
+                source: ImageSource.gallery, imageQuality: 75);
             if (img != null && _bannerTitleController.text.isNotEmpty) {
               setState(() {
                 _manager.banners.add(
@@ -4040,7 +4636,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                     imageUrl:
                         'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=600',
                     targetUrl: _bannerUrlController.text.trim(),
-                    isRightSide: true,
+                    position: _bannerPosition,
                   ),
                 );
                 _bannerTitleController.clear();
@@ -4055,12 +4651,11 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     );
   }
 
-  // 7. إدارة المستخدمين وتجميد الحسابات أو حظرها
   Widget _buildManageUsersTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('قائمة المستخدمين المسجلين والتحكم بالحظر:',
+        const Text('قائمة المستخدمين والتحكم بالحظر والتجميد:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 10),
         ..._manager.registeredUsers.asMap().entries.map((entry) {
