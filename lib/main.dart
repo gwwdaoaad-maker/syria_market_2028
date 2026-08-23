@@ -6,45 +6,50 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // ==============================================================================
-// 1. نقطة الدخول وتهيئة اتصال Supabase السحابي الحقيقي وفحص الجلسة الدائمة
+// 1. نقطة الدخول وتهيئة اتصال Supabase السحابي المعتمد وفحص الجلسة الحقيقية
 // ==============================================================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   bool hasSavedSession = false;
   String savedEmail = '';
+  String savedUserId = '';
 
   try {
     await Supabase.initialize(
-      url: 'https://syria-market-2028.supabase.co',
-      anonKey:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key_syria_market',
+      url: 'https://zbjjkigkxbpkpmpcdqc.supabase.co',
+      anonKey: 'sb_publishable_ZZ8I_vTK7kslyf02g3Zo8Q_Sg4Qi_...',
     );
 
-    // فحص الجلسة التلقائية الحقيقية المسجلة لتجاوز شاشات الدخول وحفظ الجلسة
+    // فحص الجلسة الفعلية للمستخدم عبر Auth Session
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null && session.user.email != null) {
       hasSavedSession = true;
       savedEmail = session.user.email!;
+      savedUserId = session.user.id;
     }
   } catch (e) {
-    debugPrint('Supabase Live Backend Init Notice: $e');
+    debugPrint('Supabase Connection notice: $e');
   }
 
   final appState = AppStateManager();
+
   if (hasSavedSession && savedEmail.isNotEmpty) {
-    appState.loginUser(
-      name: savedEmail.split('@').first,
+    appState.setSessionUser(
+      userId: savedUserId,
       email: savedEmail,
-      phone: '',
+      name: savedEmail.split('@').first,
     );
   }
+
+  // تحميل البيانات السحابية الحقيقية عند الإقلاع
+  await appState.initializeDataFromSupabase();
 
   runApp(const SyriaMarket2028App());
 }
 
 // ==============================================================================
-// 2. قائمة المشرفين الحصرية وقفل الحماية الأمني
+// 2. قائمة المشرفين الحصرية وقنوات التخزين السحابي (Storage Buckets)
 // ==============================================================================
 const List<String> kSuperAdminEmails = [
   'sameraoaad@gmail.com',
@@ -59,7 +64,7 @@ const String kStorageBucketReceipts = 'receipt_images';
 // 3. نماذج البيانات السحابية الحقيقية (Clean Data Models)
 // ==============================================================================
 
-/// نموذج الإعلان الحقيقي المرتبط بجدول ads
+/// نموذج الإعلان الحقيقي المرتبط بجدول ads في Supabase
 class AdItem {
   final String id;
   final String userId;
@@ -80,9 +85,9 @@ class AdItem {
   final String publisherEmail;
   final bool isFeatured;
   final bool isSold;
+  final DateTime? soldAt;
   final bool allowComments;
   final String status; // 'approved', 'pending', 'rejected'
-  final DateTime? stampedAt; // تاريخ وضع الختم الأحمر
   final DateTime createdAt;
 
   AdItem({
@@ -105,9 +110,9 @@ class AdItem {
     this.publisherEmail = '',
     this.isFeatured = false,
     this.isSold = false,
+    this.soldAt,
     this.allowComments = true,
     this.status = 'approved',
-    this.stampedAt,
     required this.createdAt,
   });
 
@@ -131,9 +136,9 @@ class AdItem {
     String? publisherEmail,
     bool? isFeatured,
     bool? isSold,
+    DateTime? soldAt,
     bool? allowComments,
     String? status,
-    DateTime? stampedAt,
     DateTime? createdAt,
   }) {
     return AdItem(
@@ -156,16 +161,15 @@ class AdItem {
       publisherEmail: publisherEmail ?? this.publisherEmail,
       isFeatured: isFeatured ?? this.isFeatured,
       isSold: isSold ?? this.isSold,
+      soldAt: soldAt ?? this.soldAt,
       allowComments: allowComments ?? this.allowComments,
       status: status ?? this.status,
-      stampedAt: stampedAt ?? this.stampedAt,
       createdAt: createdAt ?? this.createdAt,
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
+  Map<String, dynamic> toMap({bool includeId = true}) {
+    final map = <String, dynamic>{
       'user_id': userId,
       'title': title,
       'description': description,
@@ -184,11 +188,15 @@ class AdItem {
       'publisher_email': publisherEmail,
       'is_featured': isFeatured,
       'is_sold': isSold,
+      'sold_at': soldAt?.toIso8601String(),
       'allow_comments': allowComments,
       'status': status,
-      'stamped_at': stampedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
     };
+    if (includeId && id.isNotEmpty) {
+      map['id'] = id;
+    }
+    return map;
   }
 
   factory AdItem.fromMap(Map<String, dynamic> map) {
@@ -203,7 +211,7 @@ class AdItem {
       priceSyp: map['price_syp'] != null
           ? (map['price_syp'] as num).toDouble()
           : null,
-      categoryId: map['category_id']?.toString() ?? '🚗 سيارات ومركبات',
+      categoryId: map['category_id']?.toString() ?? '',
       subcategory: map['subcategory']?.toString() ?? 'عام',
       governorate: map['governorate']?.toString() ?? 'دمشق',
       neighborhood: map['neighborhood']?.toString() ?? 'المركز',
@@ -212,16 +220,16 @@ class AdItem {
       imageUrls:
           map['image_urls'] != null ? List<String>.from(map['image_urls']) : [],
       videoUrl: map['video_url']?.toString(),
-      publisherName: map['publisher_name']?.toString() ?? 'معلن موثق',
+      publisherName: map['publisher_name']?.toString() ?? 'معلن',
       publisherPhone: map['publisher_phone']?.toString() ?? '',
       publisherEmail: map['publisher_email']?.toString() ?? '',
       isFeatured: map['is_featured'] == true,
       isSold: map['is_sold'] == true,
+      soldAt: map['sold_at'] != null
+          ? DateTime.tryParse(map['sold_at'].toString())
+          : null,
       allowComments: map['allow_comments'] ?? true,
       status: map['status']?.toString() ?? 'approved',
-      stampedAt: map['stamped_at'] != null
-          ? DateTime.tryParse(map['stamped_at'].toString())
-          : null,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -229,7 +237,7 @@ class AdItem {
   }
 }
 
-/// نموذج ميزة الباقة المصحوبة بأيقونة بصرية
+/// نموذج ميزة الباقة المصحوبة بأيقونة
 class PlanFeature {
   String text;
   IconData icon;
@@ -239,7 +247,7 @@ class PlanFeature {
   Map<String, dynamic> toMap() => {'text': text, 'icon_code': icon.codePoint};
 }
 
-/// نموذج باقة الاشتراك مع تحرير يدوي للشروط والمزايا
+/// نموذج باقة الاشتراك المرتبط بجدول plans
 class PlanConfig {
   final String id;
   final String name;
@@ -305,7 +313,7 @@ class PlanConfig {
       statusConditionText:
           map['status_condition_text']?.toString() ?? 'متاحة للجميع',
       maxAdsPerMonth: (map['max_ads_per_month'] as num?)?.toInt() ?? 5,
-      maxImagesPerAd: (map['max_images_per_ad'] as num?)?.toInt() ?? 3,
+      maxImagesPerAd: (map['max_images_per_ad'] as num?)?.toInt() ?? 10,
       customFeatures: (map['custom_features'] as List<dynamic>?)
               ?.map((f) => PlanFeature(
                     text: f['text']?.toString() ?? '',
@@ -318,14 +326,14 @@ class PlanConfig {
   }
 }
 
-/// نموذج القسم الرئيسي والفرعي مع تحكم الحواف والألوان
+/// نموذج القسم الرئيسي والفرعي المرتبط بجدول categories
 class CategoryModel {
   final String id;
   String name;
   IconData iconData;
   Color backgroundColor;
   Color textColor;
-  double borderRadiusValue; // 0.0 (حادة), 12.0 (منحنية), 24.0 (دائرية)
+  double borderRadiusValue;
   List<String> subcategories;
 
   CategoryModel({
@@ -463,11 +471,35 @@ class PaymentMethod {
     required this.notes,
     required this.icon,
   });
+
+  factory PaymentMethod.fromMap(Map<String, dynamic> map) {
+    return PaymentMethod(
+      id: map['id']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      accountNumber: map['account_number']?.toString() ?? '',
+      recipientName: map['recipient_name']?.toString() ?? '',
+      notes: map['notes']?.toString() ?? '',
+      icon: IconData(
+          (map['icon_code'] as num?)?.toInt() ?? Icons.payment.codePoint,
+          fontFamily: 'MaterialIcons'),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'title': title,
+        'account_number': accountNumber,
+        'recipient_name': recipientName,
+        'notes': notes,
+        'icon_code': icon.codePoint,
+      };
 }
 
 /// نموذج رسائل المحادثة والتفاوض المباشر
 class ChatMessage {
   final String id;
+  final String adId;
+  final String senderId;
   final String senderName;
   final String senderEmail;
   final String message;
@@ -477,6 +509,8 @@ class ChatMessage {
 
   ChatMessage({
     required this.id,
+    this.adId = '',
+    required this.senderId,
     required this.senderName,
     required this.senderEmail,
     required this.message,
@@ -484,6 +518,33 @@ class ChatMessage {
     required this.isMe,
     this.offerAmount,
   });
+
+  factory ChatMessage.fromMap(Map<String, dynamic> map, String currentUserId) {
+    final sender = map['sender_id']?.toString() ?? '';
+    return ChatMessage(
+      id: map['id']?.toString() ?? '',
+      adId: map['ad_id']?.toString() ?? '',
+      senderId: sender,
+      senderName: map['sender_name']?.toString() ?? 'مستخدم',
+      senderEmail: map['sender_email']?.toString() ?? '',
+      message: map['message']?.toString() ?? '',
+      timestamp: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      isMe: sender == currentUserId,
+      offerAmount: (map['offer_amount'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'ad_id': adId,
+        'sender_id': senderId,
+        'sender_name': senderName,
+        'sender_email': senderEmail,
+        'message': message,
+        'offer_amount': offerAmount,
+        'created_at': timestamp.toIso8601String(),
+      };
 }
 
 /// نموذج الصلاحيات
@@ -505,6 +566,29 @@ class AdminPermissions {
     this.canManageUsers = true,
     this.canChangeColors = true,
   });
+
+  Map<String, dynamic> toMap() => {
+        'can_review_ads': canReviewAds,
+        'can_manage_news': canManageNews,
+        'can_manage_banners': canManageBanners,
+        'can_manage_categories': canManageCategories,
+        'can_manage_plans': canManagePlans,
+        'can_manage_users': canManageUsers,
+        'can_change_colors': canChangeColors,
+      };
+
+  factory AdminPermissions.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return AdminPermissions();
+    return AdminPermissions(
+      canReviewAds: map['can_review_ads'] ?? true,
+      canManageNews: map['can_manage_news'] ?? true,
+      canManageBanners: map['can_manage_banners'] ?? true,
+      canManageCategories: map['can_manage_categories'] ?? true,
+      canManagePlans: map['can_manage_plans'] ?? true,
+      canManageUsers: map['can_manage_users'] ?? true,
+      canChangeColors: map['can_change_colors'] ?? true,
+    );
+  }
 }
 
 /// نموذج المشرف والمستخدم
@@ -514,6 +598,7 @@ class AdminUser {
   final String email;
   final String phone;
   final String role;
+  final String planId;
   final bool isBanned;
   final bool isFrozen;
   final AdminPermissions permissions;
@@ -524,41 +609,126 @@ class AdminUser {
     required this.email,
     this.phone = '',
     required this.role,
+    this.planId = 'plan_free',
     this.isBanned = false,
     this.isFrozen = false,
     required this.permissions,
   });
 
-  AdminUser copyWith({
-    String? id,
-    String? name,
-    String? email,
-    String? phone,
-    String? role,
-    bool? isBanned,
-    bool? isFrozen,
-    AdminPermissions? permissions,
-  }) {
+  factory AdminUser.fromMap(Map<String, dynamic> map) {
     return AdminUser(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      email: email ?? this.email,
-      phone: phone ?? this.phone,
-      role: role ?? this.role,
-      isBanned: isBanned ?? this.isBanned,
-      isFrozen: isFrozen ?? this.isFrozen,
-      permissions: permissions ?? this.permissions,
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? 'مستخدم',
+      email: map['email']?.toString() ?? '',
+      phone: map['phone']?.toString() ?? '',
+      role: map['role']?.toString() ?? 'user',
+      planId: map['plan_id']?.toString() ?? 'plan_free',
+      isBanned: map['is_banned'] == true,
+      isFrozen: map['is_frozen'] == true,
+      permissions:
+          AdminPermissions.fromMap(map['permissions'] as Map<String, dynamic>?),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'role': role,
+        'plan_id': planId,
+        'is_banned': isBanned,
+        'is_frozen': isFrozen,
+        'permissions': permissions.toMap(),
+      };
+}
+
+// ==============================================================================
+// 4. شاشة عرض الصور الكبيرة بملء الشاشة مع التكبير والتصغير (FullScreenImageViewer)
+// ==============================================================================
+class FullScreenImageViewer extends StatefulWidget {
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  const FullScreenImageViewer({
+    Key? key,
+    required this.imageUrls,
+    this.initialIndex = 0,
+  }) : super(key: key);
+
+  @override
+  State<FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          'الصورة ${_currentIndex + 1} من ${widget.imageUrls.length}',
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.imageUrls.length,
+        onPageChanged: (idx) => setState(() => _currentIndex = idx),
+        itemBuilder: (ctx, idx) {
+          return Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: Image.network(
+                widget.imageUrls[idx],
+                fit: BoxFit.contain,
+                loadingBuilder: (_, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(
+                      child: CircularProgressIndicator(color: Colors.white));
+                },
+                errorBuilder: (_, __, ___) => const Center(
+                  child:
+                      Icon(Icons.broken_image, size: 80, color: Colors.white38),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
 // ==============================================================================
-// 4. مزود الحالة العام السحابي المطور (AppStateManager)
+// 5. مزود الحالة العام السحابي المطور الحقيقي (AppStateManager)
 // ==============================================================================
 class AppStateManager extends ChangeNotifier {
   static final AppStateManager _instance = AppStateManager._internal();
   factory AppStateManager() => _instance;
   AppStateManager._internal();
+
+  SupabaseClient get _client => Supabase.instance.client;
 
   // إعدادات التطبيق العامة
   String appTitle = 'سوق سوريا';
@@ -606,214 +776,362 @@ class AppStateManager extends ChangeNotifier {
         .any((adminEmail) => adminEmail.toLowerCase() == cleanEmail);
   }
 
-  // القوائم السحابية الحقيقية
+  // القوائم السحابية
   List<AdItem> ads = [];
   List<BannerItem> banners = [];
-  List<String> newsTicker = [
-    '🔥 مرحباً بكم في سوق سوريا الشامل 2028 - المنصة الرائدة للبيع والشراء والمزادات الحرة في كافة المحافظات',
-    '👑 باقة VIP الذهبية متاحة الآن بخصم 50% مع ميزات نشر وتفاوض غير محدودة',
-    '⚡ نظام الختم الأحمر والحذف التلقائي بعد 48 ساعة نشط الآن لحماية وتطهير المحتوى',
-  ];
+  List<String> newsTicker = [];
+  List<PlanConfig> plans = [];
+  List<CategoryModel> categories = [];
+  List<PaymentMethod> paymentMethods = [];
+  List<AdminUser> registeredUsers = [];
 
-  List<PlanConfig> plans = [
-    PlanConfig(
-      id: 'plan_free',
-      name: 'الباقة المجانية',
-      priceSyp: 0,
-      durationText: 'دائمة',
-      statusConditionText: 'متاحة لجميع الحسابات الجديدة فوراً',
-      maxAdsPerMonth: 5,
-      maxImagesPerAd: 3,
-      customFeatures: [
-        PlanFeature(
-            text: 'نشر 5 إعلانات شهرياً', icon: Icons.check_circle_outline),
-        PlanFeature(
-            text: 'حتى 3 صور لكل إعلان', icon: Icons.photo_library_outlined),
-        PlanFeature(
-            text: 'تفاوض مباشر مع المشترين', icon: Icons.handshake_outlined),
-      ],
-    ),
-    PlanConfig(
-      id: 'plan_vip',
-      name: 'الباقة الذهبية VIP 👑',
-      priceSyp: 150000,
-      durationText: 'شهرياً',
-      statusConditionText: 'متاحة للتفعيل الفوري عبر سيريتل/MTN كاش',
-      maxAdsPerMonth: 9999,
-      maxImagesPerAd: 10,
-      customFeatures: [
-        PlanFeature(text: 'نشر إعلانات غير محدود', icon: Icons.all_inclusive),
-        PlanFeature(text: 'حتى 10 صور عالية الدقة', icon: Icons.photo_library),
-        PlanFeature(
-            text: 'إضافة روابط وفيديوهات يوتيوب', icon: Icons.video_collection),
-        PlanFeature(
-            text: 'شارة VIP الذهبية والظهور بالصدارة', icon: Icons.verified),
-        PlanFeature(
-            text: 'الظهور في قسم البنرات الممولة', icon: Icons.campaign),
-      ],
-    ),
-  ];
+  // ==========================================
+  // استدعاء وتحميل البيانات الحقيقية من Supabase
+  // ==========================================
+  Future<void> initializeDataFromSupabase() async {
+    await Future.wait([
+      fetchAppSettings(),
+      fetchAds(),
+      fetchBanners(),
+      fetchCategories(),
+      fetchPlans(),
+      fetchNewsTicker(),
+      fetchPaymentMethods(),
+    ]);
+    await autoCleanupExpiredSoldAds();
+  }
 
-  List<CategoryModel> categories = [
-    CategoryModel(
-      id: 'cars',
-      name: '🚗 سيارات ومركبات',
-      iconData: Icons.directions_car,
-      backgroundColor: const Color(0xFF0F5132),
-      textColor: Colors.white,
-      borderRadiusValue: 12.0,
-      subcategories: [
-        'سيارات سياحية',
-        'دراجات نارية',
-        'شاحنات ومعدات ثقيلة',
-        'قطع غيار واكسسوارات'
-      ],
-    ),
-    CategoryModel(
-      id: 'realestate',
-      name: '🏢 عقارات وأراضي',
-      iconData: Icons.apartment,
-      backgroundColor: const Color(0xFF0F5132),
-      textColor: Colors.white,
-      borderRadiusValue: 12.0,
-      subcategories: [
-        'شقق للبيع',
-        'شقق للإيجار',
-        'أراضي وزراعة',
-        'محلات ومكاتب تجارية'
-      ],
-    ),
-    CategoryModel(
-      id: 'electronics',
-      name: '📱 هواتف وإلكترونيات',
-      iconData: Icons.phone_android,
-      backgroundColor: const Color(0xFF0F5132),
-      textColor: Colors.white,
-      borderRadiusValue: 12.0,
-      subcategories: [
-        'هواتف ذكية',
-        'أجهزة لوحية',
-        'لابتوب وكمبيوتر',
-        'شاشات وكاميرات'
-      ],
-    ),
-    CategoryModel(
-      id: 'furniture',
-      name: '🛋️ أثاث ومستعمل',
-      iconData: Icons.chair,
-      backgroundColor: const Color(0xFF0F5132),
-      textColor: Colors.white,
-      borderRadiusValue: 12.0,
-      subcategories: [
-        'غرف نوم وصالونات',
-        'أجهزة منزلية كهربائية',
-        'مفروشات مكتبية',
-        'طاقة شمسية وبطاريات'
-      ],
-    ),
-    CategoryModel(
-      id: 'fashion',
-      name: '👔 ألبسة وموضة',
-      iconData: Icons.checkroom,
-      backgroundColor: const Color(0xFF0F5132),
-      textColor: Colors.white,
-      borderRadiusValue: 12.0,
-      subcategories: [
-        'ألبسة رجالية',
-        'ألبسة نسائية',
-        'ألبسة أطفال',
-        'ساعات ومجوهرات'
-      ],
-    ),
-    CategoryModel(
-      id: 'jobs',
-      name: '💼 وظائف وخدمات',
-      iconData: Icons.work,
-      backgroundColor: const Color(0xFF0F5132),
-      textColor: Colors.white,
-      borderRadiusValue: 12.0,
-      subcategories: [
-        'فرص عمل وشواغر',
-        'خدمات صيانة ومنزلية',
-        'شحن ونقل بضائع',
-        'دروس واستشارات'
-      ],
-    ),
-  ];
+  void setSessionUser(
+      {required String userId, required String email, required String name}) {
+    isLoggedIn = true;
+    currentUserId = userId;
+    currentUserEmail = email.trim();
+    currentUserName = name;
+    currentUserPlanId = isSuperAdmin ? 'plan_vip' : 'plan_free';
+    notifyListeners();
+  }
 
-  List<PaymentMethod> paymentMethods = [
-    PaymentMethod(
-      id: 'syriatel',
-      title: 'سيريتل كاش (Syriatel Cash)',
-      accountNumber: '0933112233',
-      recipientName: 'سوق سوريا الشامل 2028',
-      notes:
-          'يرجى تحويل المبلغ وتصوير إشعار العملية وإرفاقه بالأسفل لتفعيل الباقة فوراً.',
-      icon: Icons.phone_android,
-    ),
-    PaymentMethod(
-      id: 'mtn',
-      title: 'MTN كاش (MTN Cash)',
-      accountNumber: '0944112233',
-      recipientName: 'سوق سوريا الشامل 2028',
-      notes: 'تحويل فوري مباشر لحساب الكاش مع حفظ صورة العملية.',
-      icon: Icons.account_balance_wallet,
-    ),
-    PaymentMethod(
-      id: 'sham_bank',
-      title: 'حساب بنك الشام / بنك البركة',
-      accountNumber: 'SY-1002938472910',
-      recipientName: 'شركة سوق سوريا للاستثمار',
-      notes: 'إيداع بنكي مباشر عبر فروع البنك في كافة المحافظات.',
-      icon: Icons.account_balance,
-    ),
-  ];
+  // 1. جلب الإعدادات العامة
+  Future<void> fetchAppSettings() async {
+    try {
+      final res = await _client.from('app_settings').select().maybeSingle();
+      if (res != null) {
+        appTitle = res['app_title'] ?? appTitle;
+        appSubtitle = res['app_subtitle'] ?? appSubtitle;
+        isMaintenanceMode = res['is_maintenance'] ?? false;
+        maintenanceMessage = res['maintenance_message'] ?? maintenanceMessage;
+        disclaimerText = res['disclaimer_text'] ?? disclaimerText;
+        if (res['primary_color'] != null)
+          primaryColor = Color(res['primary_color']);
+        if (res['secondary_color'] != null)
+          secondaryColor = Color(res['secondary_color']);
+        if (res['app_bar_color'] != null)
+          appBarColor = Color(res['app_bar_color']);
+        if (res['button_color'] != null)
+          buttonColor = Color(res['button_color']);
+        if (res['scaffold_bg_color'] != null)
+          scaffoldBgColor = Color(res['scaffold_bg_color']);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error fetching app settings: $e');
+    }
+  }
 
-  List<AdminUser> registeredUsers = [
-    AdminUser(
-      id: 'admin-1',
-      name: 'سامر عواد',
-      email: 'sameraoaad@gmail.com',
-      phone: '0944000001',
-      role: 'super_admin',
-      permissions: AdminPermissions(),
-    ),
-    AdminUser(
-      id: 'admin-2',
-      name: 'عبدو عواد',
-      email: 'aoaadabdo@gmail.com',
-      phone: '0944000002',
-      role: 'super_admin',
-      permissions: AdminPermissions(),
-    ),
-  ];
+  // 2. جلب الإعلانات الحقيقية
+  Future<void> fetchAds() async {
+    try {
+      final response = await _client
+          .from('ads')
+          .select()
+          .order('created_at', ascending: false);
+      ads = (response as List).map((row) => AdItem.fromMap(row)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching ads: $e');
+    }
+  }
 
-  void updateAppConfig(
-      {String? title,
-      String? subtitle,
-      bool? maintenance,
-      String? maintMsg,
-      String? disclaimer}) {
+  // 3. جلب البنرات
+  Future<void> fetchBanners() async {
+    try {
+      final response = await _client.from('banners').select();
+      banners =
+          (response as List).map((row) => BannerItem.fromMap(row)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching banners: $e');
+    }
+  }
+
+  // 4. جلب الأقسام
+  Future<void> fetchCategories() async {
+    try {
+      final response = await _client.from('categories').select();
+      if ((response as List).isNotEmpty) {
+        categories = response.map((row) => CategoryModel.fromMap(row)).toList();
+      } else {
+        _populateDefaultCategories();
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching categories: $e');
+      _populateDefaultCategories();
+    }
+  }
+
+  void _populateDefaultCategories() {
+    categories = [
+      CategoryModel(
+        id: 'cars',
+        name: '🚗 سيارات ومركبات',
+        iconData: Icons.directions_car,
+        subcategories: [
+          'سيارات سياحية',
+          'دراجات نارية',
+          'شاحنات ومعدات ثقيلة',
+          'قطع غيار واكسسوارات'
+        ],
+      ),
+      CategoryModel(
+        id: 'realestate',
+        name: '🏢 عقارات وأراضي',
+        iconData: Icons.apartment,
+        subcategories: [
+          'شقق للبيع',
+          'شقق للإيجار',
+          'أراضي وزراعة',
+          'محلات ومكاتب تجارية'
+        ],
+      ),
+      CategoryModel(
+        id: 'electronics',
+        name: '📱 هواتف وإلكترونيات',
+        iconData: Icons.phone_android,
+        subcategories: [
+          'هواتف ذكية',
+          'أجهزة لوحية',
+          'لابتوب وكمبيوتر',
+          'شاشات وكاميرات'
+        ],
+      ),
+      CategoryModel(
+        id: 'furniture',
+        name: '🛋️ أثاث ومستعمل',
+        iconData: Icons.chair,
+        subcategories: [
+          'غرف نوم وصالونات',
+          'أجهزة منزلية كهربائية',
+          'مفروشات مكتبية',
+          'طاقة شمسية وبطاريات'
+        ],
+      ),
+      CategoryModel(
+        id: 'fashion',
+        name: '👔 ألبسة وموضة',
+        iconData: Icons.checkroom,
+        subcategories: [
+          'ألبسة رجالية',
+          'ألبسة نسائية',
+          'ألبسة أطفال',
+          'ساعات ومجوهرات'
+        ],
+      ),
+      CategoryModel(
+        id: 'jobs',
+        name: '💼 وظائف وخدمات',
+        iconData: Icons.work,
+        subcategories: [
+          'فرص عمل وشواغر',
+          'خدمات صيانة ومنزلية',
+          'شحن ونقل بضائع',
+          'دروس واستشارات'
+        ],
+      ),
+    ];
+  }
+
+  // 5. جلب الباقات
+  Future<void> fetchPlans() async {
+    try {
+      final response = await _client.from('plans').select();
+      if ((response as List).isNotEmpty) {
+        plans = response.map((row) => PlanConfig.fromMap(row)).toList();
+      } else {
+        _populateDefaultPlans();
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching plans: $e');
+      _populateDefaultPlans();
+    }
+  }
+
+  void _populateDefaultPlans() {
+    plans = [
+      PlanConfig(
+        id: 'plan_free',
+        name: 'الباقة المجانية',
+        priceSyp: 0,
+        durationText: 'دائمة',
+        statusConditionText: 'متاحة لجميع الحسابات الجديدة فوراً',
+        maxAdsPerMonth: 5,
+        maxImagesPerAd: 10,
+        customFeatures: [
+          PlanFeature(
+              text: 'نشر 5 إعلانات شهرياً', icon: Icons.check_circle_outline),
+          PlanFeature(
+              text: 'حتى 10 صور لكل إعلان بالمعرض',
+              icon: Icons.photo_library_outlined),
+          PlanFeature(
+              text: 'تفاوض مباشر مع المشترين', icon: Icons.handshake_outlined),
+        ],
+      ),
+      PlanConfig(
+        id: 'plan_vip',
+        name: 'الباقة الذهبية VIP 👑',
+        priceSyp: 150000,
+        durationText: 'شهرياً',
+        statusConditionText: 'متاحة للتفعيل الفوري عبر سيريتل/MTN كاش',
+        maxAdsPerMonth: 9999,
+        maxImagesPerAd: 10,
+        customFeatures: [
+          PlanFeature(text: 'نشر إعلانات غير محدود', icon: Icons.all_inclusive),
+          PlanFeature(
+              text: 'حتى 10 صور عالية الدقة', icon: Icons.photo_library),
+          PlanFeature(
+              text: 'إضافة روابط وفيديوهات يوتيوب',
+              icon: Icons.video_collection),
+          PlanFeature(
+              text: 'شارة VIP الذهبية والظهور بالصدارة', icon: Icons.verified),
+          PlanFeature(
+              text: 'الظهور في قسم البنرات الممولة', icon: Icons.campaign),
+        ],
+      ),
+    ];
+  }
+
+  // 6. جلب شريط الأخبار
+  Future<void> fetchNewsTicker() async {
+    try {
+      final response = await _client
+          .from('news_ticker')
+          .select()
+          .order('id', ascending: true);
+      if ((response as List).isNotEmpty) {
+        newsTicker =
+            response.map((row) => row['text']?.toString() ?? '').toList();
+      } else {
+        newsTicker = [
+          '🔥 مرحباً بكم في سوق سوريا الشامل 2028 - المنصة الرائدة للبيع والشراء والمزادات الحرة في كافة المحافظات',
+          '👑 باقة VIP الذهبية متاحة الآن بخصم 50% مع ميزات نشر وتفاوض غير محدودة',
+          '⚡ نظام الختم الأحمر والحذف التلقائي بعد 48 ساعة نشط الآن لحماية وتطهير المحتوى',
+        ];
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching news ticker: $e');
+    }
+  }
+
+  // 7. جلب طرق الدفع
+  Future<void> fetchPaymentMethods() async {
+    try {
+      final response = await _client.from('payment_methods').select();
+      if ((response as List).isNotEmpty) {
+        paymentMethods =
+            response.map((row) => PaymentMethod.fromMap(row)).toList();
+      } else {
+        paymentMethods = [
+          PaymentMethod(
+            id: 'syriatel',
+            title: 'سيريتل كاش (Syriatel Cash)',
+            accountNumber: '0933112233',
+            recipientName: 'سوق سوريا الشامل 2028',
+            notes:
+                'يرجى تحويل المبلغ وتصوير إشعار العملية وإرفاقه بالأسفل لتفعيل الباقة فوراً.',
+            icon: Icons.phone_android,
+          ),
+          PaymentMethod(
+            id: 'mtn',
+            title: 'MTN كاش (MTN Cash)',
+            accountNumber: '0944112233',
+            recipientName: 'سوق سوريا الشامل 2028',
+            notes: 'تحويل فوري مباشر لحساب الكاش مع حفظ صورة العملية.',
+            icon: Icons.account_balance_wallet,
+          ),
+          PaymentMethod(
+            id: 'sham_bank',
+            title: 'حساب بنك الشام / بنك البركة',
+            accountNumber: 'SY-1002938472910',
+            recipientName: 'شركة سوق سوريا للاستثمار',
+            notes: 'إيداع بنكي مباشر عبر فروع البنك في كافة المحافظات.',
+            icon: Icons.account_balance,
+          ),
+        ];
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching payment methods: $e');
+    }
+  }
+
+  // تحديث إعدادات التطبيق وحفظها في Supabase
+  Future<void> updateAppConfig({
+    String? title,
+    String? subtitle,
+    bool? maintenance,
+    String? maintMsg,
+    String? disclaimer,
+  }) async {
     if (title != null) appTitle = title;
     if (subtitle != null) appSubtitle = subtitle;
     if (maintenance != null) isMaintenanceMode = maintenance;
     if (maintMsg != null) maintenanceMessage = maintMsg;
     if (disclaimer != null) disclaimerText = disclaimer;
     notifyListeners();
+
+    try {
+      await _client.from('app_settings').upsert({
+        'id': 1,
+        'app_title': appTitle,
+        'app_subtitle': appSubtitle,
+        'is_maintenance': isMaintenanceMode,
+        'maintenance_message': maintenanceMessage,
+        'disclaimer_text': disclaimerText,
+      });
+    } catch (e) {
+      debugPrint('Error updating app config: $e');
+    }
   }
 
-  void updateAppColors(
-      {Color? primary,
-      Color? secondary,
-      Color? appBar,
-      Color? button,
-      Color? scaffoldBg}) {
+  // تحديث الألوان وحفظها في Supabase
+  Future<void> updateAppColors({
+    Color? primary,
+    Color? secondary,
+    Color? appBar,
+    Color? button,
+    Color? scaffoldBg,
+  }) async {
     if (primary != null) primaryColor = primary;
     if (secondary != null) secondaryColor = secondary;
     if (appBar != null) appBarColor = appBar;
     if (button != null) buttonColor = button;
     if (scaffoldBg != null) scaffoldBgColor = scaffoldBg;
     notifyListeners();
+
+    try {
+      await _client.from('app_settings').upsert({
+        'id': 1,
+        'primary_color': primaryColor.value,
+        'secondary_color': secondaryColor.value,
+        'app_bar_color': appBarColor.value,
+        'button_color': buttonColor.value,
+        'scaffold_bg_color': scaffoldBgColor.value,
+      });
+    } catch (e) {
+      debugPrint('Error updating app colors: $e');
+    }
   }
 
   void updateTickerSettings(
@@ -830,34 +1148,54 @@ class AppStateManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void loginUser(
-      {required String name, required String email, required String phone}) {
+  // تسجيل الدخول الحقيقي وربطه بالـ Auth و Users Profile
+  Future<bool> loginUser(
+      {required String name,
+      required String email,
+      required String phone,
+      String? password}) async {
+    try {
+      if (password != null && password.isNotEmpty) {
+        final authRes = await _client.auth.signInWithPassword(
+          email: email.trim(),
+          password: password,
+        );
+        currentUserId = authRes.user?.id ?? '';
+      }
+    } catch (e) {
+      debugPrint('Auth login error: $e');
+    }
+
     isLoggedIn = true;
     currentUserName = name;
     currentUserEmail = email.trim();
     currentUserPhone = phone;
-    currentUserId = email.trim().isNotEmpty ? email.trim() : phone.trim();
+    if (currentUserId.isEmpty) {
+      currentUserId = _client.auth.currentUser?.id ??
+          (email.trim().isNotEmpty ? email.trim() : phone.trim());
+    }
     currentUserPlanId = isSuperAdmin ? 'plan_vip' : 'plan_free';
 
-    if (!registeredUsers
-        .any((u) => u.email.toLowerCase() == email.trim().toLowerCase())) {
-      registeredUsers.add(
-        AdminUser(
-          id: 'user-${DateTime.now().millisecondsSinceEpoch}',
-          name: name,
-          email: email.trim(),
-          phone: phone,
-          role: isSuperAdmin ? 'super_admin' : 'user',
-          permissions: AdminPermissions(),
-        ),
-      );
+    try {
+      await _client.from('users_profiles').upsert({
+        'id': currentUserId,
+        'name': name,
+        'email': email.trim(),
+        'phone': phone,
+        'role': isSuperAdmin ? 'super_admin' : 'user',
+        'plan_id': currentUserPlanId,
+      });
+    } catch (e) {
+      debugPrint('Profile upsert notice: $e');
     }
+
     notifyListeners();
+    return true;
   }
 
-  void logoutUser() async {
+  Future<void> logoutUser() async {
     try {
-      await Supabase.instance.client.auth.signOut();
+      await _client.auth.signOut();
     } catch (e) {
       debugPrint('Logout Supabase notice: $e');
     }
@@ -875,6 +1213,7 @@ class AppStateManager extends ChangeNotifier {
         orElse: () => plans.first);
   }
 
+  // حذف صور الإعلان الحقيقية من الـ Storage
   static Future<void> deleteStorageImages(List<String> imageUrls) async {
     for (final url in imageUrls) {
       try {
@@ -891,16 +1230,17 @@ class AppStateManager extends ChangeNotifier {
     }
   }
 
-  Future<void> autoCleanupExpiredStampedAds() async {
+  // تنظيف وحذف الإعلانات المباعة بعد 48 ساعة حقيقياً من قاعدة البيانات والـ Storage
+  Future<void> autoCleanupExpiredSoldAds() async {
     final now = DateTime.now();
     final expiredAds = ads.where((ad) {
-      if (ad.stampedAt == null) return false;
-      return now.difference(ad.stampedAt!).inHours >= 48;
+      if (!ad.isSold || ad.soldAt == null) return false;
+      return now.difference(ad.soldAt!).inHours >= 48;
     }).toList();
 
     for (final ad in expiredAds) {
       try {
-        await Supabase.instance.client.from('ads').delete().eq('id', ad.id);
+        await _client.from('ads').delete().eq('id', ad.id);
         await deleteStorageImages(ad.imageUrls);
         ads.removeWhere((x) => x.id == ad.id);
       } catch (e) {
@@ -914,7 +1254,7 @@ class AppStateManager extends ChangeNotifier {
 }
 
 // ==============================================================================
-// 5. كلاس التطبيق الجذري (SyriaMarket2028App)
+// 6. كلاس التطبيق الجذري (SyriaMarket2028App)
 // ==============================================================================
 class SyriaMarket2028App extends StatefulWidget {
   const SyriaMarket2028App({Key? key}) : super(key: key);
@@ -1070,7 +1410,7 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
 }
 
 // ==============================================================================
-// 6. الشاشة الرئيسية الكبرى ولوحة التصفح (MainDashboardScreen)
+// 7. الشاشة الرئيسية الكبرى وشبكة المنشورات الثنائية الحقيقية (MainDashboardScreen)
 // ==============================================================================
 class MainDashboardScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -1115,6 +1455,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   final Set<String> _favoriteAdIds = {};
   bool _isLoadingAds = false;
   int _pendingAdsCount = 0;
+  List<Map<String, dynamic>> _userChatThreads = [];
 
   final ScrollController _tickerScrollController = ScrollController();
   Timer? _tickerTimer;
@@ -1133,6 +1474,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     super.initState();
     _manager.addListener(_onStateChange);
     _initLiveAdsFromSupabase();
+    _fetchUserFavorites();
+    _fetchUserChats();
     _startTickerAnimation();
     _startBannerCarousels();
   }
@@ -1174,9 +1517,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         Duration(seconds: _manager.topBannerIntervalSeconds), (timer) {
       final topBanners =
           _manager.banners.where((b) => b.position == 'top').toList();
-      final pageCount = (topBanners.length / 2).ceil();
-      if (mounted && pageCount > 1 && _topBannerController.hasClients) {
-        _currentTopBannerPage = (_currentTopBannerPage + 1) % pageCount;
+      if (mounted && topBanners.length > 1 && _topBannerController.hasClients) {
+        _currentTopBannerPage = (_currentTopBannerPage + 1) % topBanners.length;
         _topBannerController.animateToPage(
           _currentTopBannerPage,
           duration: const Duration(milliseconds: 600),
@@ -1190,9 +1532,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         Duration(seconds: _manager.bottomBannerIntervalSeconds), (timer) {
       final bottomBanners =
           _manager.banners.where((b) => b.position == 'bottom').toList();
-      final pageCount = (bottomBanners.length / 2).ceil();
-      if (mounted && pageCount > 1 && _bottomBannerController.hasClients) {
-        _currentBottomBannerPage = (_currentBottomBannerPage + 1) % pageCount;
+      if (mounted &&
+          bottomBanners.length > 1 &&
+          _bottomBannerController.hasClients) {
+        _currentBottomBannerPage =
+            (_currentBottomBannerPage + 1) % bottomBanners.length;
         _bottomBannerController.animateToPage(
           _currentBottomBannerPage,
           duration: const Duration(milliseconds: 600),
@@ -1200,6 +1544,70 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         );
       }
     });
+  }
+
+  Future<void> _fetchUserFavorites() async {
+    if (!_manager.isLoggedIn || _manager.currentUserId.isEmpty) return;
+    try {
+      final res = await Supabase.instance.client
+          .from('favorites')
+          .select('ad_id')
+          .eq('user_id', _manager.currentUserId);
+      if (res is List) {
+        setState(() {
+          _favoriteAdIds.clear();
+          for (final row in res) {
+            _favoriteAdIds.add(row['ad_id'].toString());
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Favorites fetch notice: $e');
+    }
+  }
+
+  Future<void> _toggleFavoriteInSupabase(String adId) async {
+    if (!_manager.isLoggedIn) return;
+    final isFav = _favoriteAdIds.contains(adId);
+    setState(() {
+      if (isFav) {
+        _favoriteAdIds.remove(adId);
+      } else {
+        _favoriteAdIds.add(adId);
+      }
+    });
+
+    try {
+      if (isFav) {
+        await Supabase.instance.client
+            .from('favorites')
+            .delete()
+            .match({'user_id': _manager.currentUserId, 'ad_id': adId});
+      } else {
+        await Supabase.instance.client
+            .from('favorites')
+            .insert({'user_id': _manager.currentUserId, 'ad_id': adId});
+      }
+    } catch (e) {
+      debugPrint('Error toggling favorite: $e');
+    }
+  }
+
+  Future<void> _fetchUserChats() async {
+    if (!_manager.isLoggedIn || _manager.currentUserId.isEmpty) return;
+    try {
+      final res = await Supabase.instance.client
+          .from('chat_messages')
+          .select()
+          .order('created_at', ascending: false);
+      if (res is List) {
+        setState(() {
+          _userChatThreads = List<Map<String, dynamic>>.from(res);
+        });
+      }
+    } catch (e) {
+      debugPrint('Fetch chats notice: $e');
+    }
   }
 
   Future<void> _initLiveAdsFromSupabase() async {
@@ -1210,21 +1618,19 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           .select()
           .order('created_at', ascending: false);
 
-      if (res is List && res.isNotEmpty) {
+      if (res is List) {
         _manager.ads = res
             .map((map) => AdItem.fromMap(map as Map<String, dynamic>))
             .toList();
       }
 
-      // جلب البنرات الحقيقية من Supabase
       final bannerRes = await Supabase.instance.client.from('banners').select();
-      if (bannerRes is List && bannerRes.isNotEmpty) {
+      if (bannerRes is List) {
         _manager.banners = bannerRes
             .map((map) => BannerItem.fromMap(map as Map<String, dynamic>))
             .toList();
       }
 
-      // جلب عدد المنشورات المعلقة لجرس المشرفين
       if (_manager.isSuperAdmin) {
         final pendingRes = await Supabase.instance.client
             .from('ads')
@@ -1235,7 +1641,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         }
       }
 
-      await _manager.autoCleanupExpiredStampedAds();
+      await _manager.autoCleanupExpiredSoldAds();
     } catch (e) {
       debugPrint('Supabase fetch ads notice: $e');
     } finally {
@@ -1248,7 +1654,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-              '⚠️ يجب تسجيل الدخول وتأكيد الحساب أولاً لإتمام هذا الإجراء في المنصة.'),
+              '⚠️ يجب تسجيل الدخول أولاً لإتمام هذا الإجراء في المنصة.'),
           backgroundColor: const Color(0xFF1E293B),
           behavior: SnackBarBehavior.floating,
           shape:
@@ -1346,7 +1752,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 color: Colors.white),
             onPressed: widget.onToggleTheme,
           ),
-          // جرس إشعارات الإدارة السري الحصري للمشرفين
           if (_manager.isSuperAdmin)
             Stack(
               alignment: Alignment.center,
@@ -1448,7 +1853,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           ad.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           ad.description.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           ad.neighborhood.toLowerCase().contains(_searchQuery.toLowerCase());
-      final isApproved = ad.status == 'approved';
+      final isApproved = ad.status == 'approved' || (_manager.isSuperAdmin);
 
       return matchesGov &&
           matchesCat &&
@@ -1460,14 +1865,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     return Column(
       children: [
         _buildCustomNewsTickerWidget(),
-        _buildSideBySideBannersWidget('top', _topBannerController),
+        _buildBannerCarouselBox('top', _topBannerController),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           child: TextField(
             onChanged: (val) => setState(() => _searchQuery = val),
             decoration: InputDecoration(
               hintText:
-                  'ابحث في كافة إعلانات سوق سوريا الحية (سيارات، عقارات، هواتف...)...',
+                  'ابحث في كافة إعلانات سوق سوريا (سيارات، عقارات، هواتف...)...',
               hintStyle: const TextStyle(fontSize: 12),
               prefixIcon: Icon(Icons.search, color: _manager.primaryColor),
               suffixIcon: _manager.isVoiceTypingEnabled
@@ -1501,7 +1906,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             children: [
               Row(
                 children: [
-                  const Text('أحدث إعلانات السوق المعتمدة',
+                  const Text('أحدث إعلانات السوق',
                       style:
                           TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 8),
@@ -1540,7 +1945,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     ? ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: [
-                          const SizedBox(height: 60),
+                          const SizedBox(height: 50),
                           Center(
                             child: Column(
                               children: [
@@ -1570,25 +1975,39 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                               ],
                             ),
                           ),
+                          const SizedBox(height: 20),
+                          _buildBannerCarouselBox(
+                              'bottom', _bottomBannerController),
                         ],
                       )
-                    : ListView.builder(
-                        itemCount: filteredAds.length + 1,
-                        padding: const EdgeInsets.only(bottom: 24),
-                        itemBuilder: (ctx, index) {
-                          if (index == (filteredAds.length / 2).floor()) {
-                            return _buildSideBySideBannersWidget(
-                                'bottom', _bottomBannerController);
-                          }
-                          final actualIndex =
-                              index > (filteredAds.length / 2).floor()
-                                  ? index - 1
-                                  : index;
-                          if (actualIndex >= filteredAds.length)
-                            return const SizedBox.shrink();
-                          final ad = filteredAds[actualIndex];
-                          return _buildAdCard(ad);
-                        },
+                    : CustomScrollView(
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            sliver: SliverGrid(
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.68,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (ctx, index) {
+                                  final ad = filteredAds[index];
+                                  return _buildGridAdCard(ad);
+                                },
+                                childCount: filteredAds.length,
+                              ),
+                            ),
+                          ),
+                          SliverToBoxAdapter(
+                            child: _buildBannerCarouselBox(
+                                'bottom', _bottomBannerController),
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                        ],
                       ),
           ),
         ),
@@ -1648,65 +2067,94 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-  /// البنرات المزدوجة المتجاورة المربعة والكبيرة (Square Aspect Ratio)
-  Widget _buildSideBySideBannersWidget(
-      String position, PageController controller) {
+  Widget _buildBannerCarouselBox(String position, PageController controller) {
     final positionBanners =
         _manager.banners.where((b) => b.position == position).toList();
-    if (positionBanners.isEmpty) return const SizedBox.shrink();
-
-    final pairCount = (positionBanners.length / 2).ceil();
 
     return Container(
-      height: 155,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: PageView.builder(
-        controller: controller,
-        itemCount: pairCount,
-        itemBuilder: (ctx, pageIndex) {
-          final firstIdx = pageIndex * 2;
-          final secondIdx = firstIdx + 1;
+      height: 125,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: positionBanners.isEmpty
+          ? _buildVacantBannerPlaceholder(position)
+          : PageView.builder(
+              controller: controller,
+              itemCount: positionBanners.length,
+              itemBuilder: (ctx, idx) {
+                final banner = positionBanners[idx];
+                return _buildSingleBannerSquareCard(banner);
+              },
+            ),
+    );
+  }
 
-          final firstBanner = positionBanners[firstIdx];
-          final hasSecond = secondIdx < positionBanners.length;
-          final secondBanner = hasSecond ? positionBanners[secondIdx] : null;
-
-          return Row(
-            children: [
-              Expanded(child: _buildSingleBannerSquareCard(firstBanner)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: secondBanner != null
-                    ? _buildSingleBannerSquareCard(secondBanner)
-                    : Container(
-                        decoration: BoxDecoration(
-                          color: _manager.primaryColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                              color: _manager.secondaryColor.withOpacity(0.5)),
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add_photo_alternate,
-                                  color: _manager.secondaryColor, size: 32),
-                              const SizedBox(height: 6),
-                              Text(
-                                'مساحة إعلانية مربعة ✨',
-                                style: TextStyle(
-                                    color: _manager.primaryColor,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
+  Widget _buildVacantBannerPlaceholder(String position) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _manager.primaryColor.withOpacity(0.12),
+            _manager.secondaryColor.withOpacity(0.15),
+          ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: _manager.secondaryColor.withOpacity(0.6), width: 1.5),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (c) => const FullPaymentMethodsScreen()),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _manager.secondaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.campaign,
+                      color: _manager.primaryColor, size: 28),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'مساحة إعلانية شاغرة ⭐ (${position == "top" ? "القسم العلوي" : "القسم السفلي"})',
+                        style: TextStyle(
+                            color: _manager.primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13),
                       ),
-              ),
-            ],
-          );
-        },
+                      const SizedBox(height: 4),
+                      const Text(
+                        'ضع إعلانك التجاري المميز هنا ليصل لآلاف الزوار يومياً. اضغط للتواصل والحجز.',
+                        style: TextStyle(fontSize: 11, color: Colors.blueGrey),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios,
+                    color: _manager.primaryColor, size: 14),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1736,8 +2184,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 fit: BoxFit.cover,
                 errorBuilder: (ctx, _, __) => Container(
                   color: const Color(0xFF1E293B),
-                  child: const Icon(Icons.campaign,
-                      color: Colors.white70, size: 36),
+                  child: const Center(
+                      child: Icon(Icons.campaign,
+                          color: Colors.white70, size: 36)),
                 ),
               ),
             ),
@@ -1745,10 +2194,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.black.withOpacity(0.75),
-                      Colors.transparent
-                    ],
+                    colors: [Colors.black.withOpacity(0.8), Colors.transparent],
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                   ),
@@ -1757,8 +2203,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             ),
             Positioned(
               bottom: 8,
-              right: 8,
-              left: 8,
+              right: 12,
+              left: 12,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -1768,7 +2214,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12),
+                        fontSize: 13),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1777,7 +2223,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     banner.subtitle,
                     style: TextStyle(
                         color: _manager.secondaryColor,
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1794,7 +2240,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   Widget _buildCategoriesHorizontalBar() {
     final currentCat = _manager.categories.firstWhere(
       (c) => c.name == _selectedCategoryId,
-      orElse: () => _manager.categories.first,
+      orElse: () => _manager.categories.isNotEmpty
+          ? _manager.categories.first
+          : CategoryModel(
+              id: 'all',
+              name: 'الكل',
+              iconData: Icons.category,
+              subcategories: []),
     );
 
     final subcategories =
@@ -1899,11 +2351,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-  Widget _buildAdCard(AdItem ad) {
+  /// كارد المنشور المصمم لشبكة العمودين (2-Column GridView)
+  Widget _buildGridAdCard(AdItem ad) {
     final isFav = _favoriteAdIds.contains(ad.id);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       clipBehavior: Clip.antiAlias,
       elevation: 2,
@@ -1917,13 +2369,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                 isFavorite: isFav,
                 onToggleFavorite: () {
                   _requireAuth(() {
-                    setState(() {
-                      if (isFav) {
-                        _favoriteAdIds.remove(ad.id);
-                      } else {
-                        _favoriteAdIds.add(ad.id);
-                      }
-                    });
+                    _toggleFavoriteInSupabase(ad.id);
                   });
                 },
                 onAdUpdated: (updatedAd) {
@@ -1945,158 +2391,147 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                Container(
-                  height: 180,
-                  width: double.infinity,
-                  color: Colors.grey.shade900,
-                  child: Image.network(
-                    ad.imageUrls.isNotEmpty ? ad.imageUrls.first : '',
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, _, __) => Container(
-                      color: const Color(0xFF1E293B),
-                      child: const Center(
-                          child: Icon(Icons.image,
-                              size: 50, color: Colors.white38)),
-                    ),
-                  ),
-                ),
-                if (ad.isFeatured)
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                          color: _manager.secondaryColor,
-                          borderRadius: BorderRadius.circular(6)),
-                      child: Text('مميز ★ VIP',
-                          style: TextStyle(
-                              color: _manager.primaryColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11)),
-                    ),
-                  ),
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                        color: Colors.black45, shape: BoxShape.circle),
-                    child: IconButton(
-                      icon: Icon(isFav ? Icons.favorite : Icons.favorite_border,
-                          color: isFav ? Colors.red : Colors.white, size: 20),
-                      onPressed: () {
-                        _requireAuth(() {
-                          setState(() {
-                            if (isFav) {
-                              _favoriteAdIds.remove(ad.id);
-                            } else {
-                              _favoriteAdIds.add(ad.id);
-                            }
-                          });
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                if (ad.stampedAt != null)
-                  Positioned(
-                    bottom: 10,
-                    right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade900.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.warning, color: Colors.white, size: 14),
-                          SizedBox(width: 4),
-                          Text('مختوم بالأحمر (حذف خلال 48 ساعة)',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (ad.isSold)
+            Expanded(
+              flex: 6,
+              child: Stack(
+                children: [
                   Positioned.fill(
                     child: Container(
-                      color: Colors.black.withOpacity(0.65),
-                      child: Center(
-                        child: Transform.rotate(
-                          angle: -0.15,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 8),
-                            decoration: BoxDecoration(
-                                color: Colors.red.shade700,
-                                borderRadius: BorderRadius.circular(8)),
-                            child: const Text('✓ تـم الـبـيـع',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18)),
-                          ),
+                      color: Colors.grey.shade900,
+                      child: Image.network(
+                        ad.imageUrls.isNotEmpty ? ad.imageUrls.first : '',
+                        fit: BoxFit.cover,
+                        loadingBuilder: (ctx, child, progress) {
+                          if (progress == null) return child;
+                          return const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2));
+                        },
+                        errorBuilder: (ctx, _, __) => Container(
+                          color: const Color(0xFF1E293B),
+                          child: const Center(
+                              child: Icon(Icons.image,
+                                  size: 36, color: Colors.white38)),
                         ),
                       ),
                     ),
                   ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(ad.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 15),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          if (ad.priceUsd != null)
-                            Text('\$${ad.priceUsd!.toStringAsFixed(0)}',
-                                style: TextStyle(
-                                    color: _manager.primaryColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 17)),
-                          if (ad.priceUsd != null && ad.priceSyp != null)
-                            const SizedBox(width: 8),
-                          if (ad.priceSyp != null)
-                            Text('${ad.priceSyp!.toStringAsFixed(0)} ل.س',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Colors.blueGrey)),
-                        ],
+                  if (ad.isFeatured)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: _manager.secondaryColor,
+                            borderRadius: BorderRadius.circular(4)),
+                        child: Text('VIP ★',
+                            style: TextStyle(
+                                color: _manager.primaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10)),
                       ),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on,
-                              color: _manager.primaryColor, size: 14),
-                          const SizedBox(width: 2),
-                          Text('${ad.governorate} - ${ad.neighborhood}',
-                              style: const TextStyle(
-                                  fontSize: 11, color: Colors.grey)),
-                        ],
+                    ),
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                          color: Colors.black45, shape: BoxShape.circle),
+                      child: GestureDetector(
+                        onTap: () {
+                          _requireAuth(() {
+                            _toggleFavoriteInSupabase(ad.id);
+                          });
+                        },
+                        child: Icon(
+                            isFav ? Icons.favorite : Icons.favorite_border,
+                            color: isFav ? Colors.red : Colors.white,
+                            size: 16),
                       ),
-                    ],
+                    ),
                   ),
+                  if (ad.isSold)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withOpacity(0.6),
+                        child: Center(
+                          child: Transform.rotate(
+                            angle: -0.2,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade800,
+                                borderRadius: BorderRadius.circular(6),
+                                border:
+                                    Border.all(color: Colors.white, width: 1.5),
+                              ),
+                              child: const Text('✓ تم البيع',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      ad.title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (ad.priceUsd != null)
+                          Text('\$${ad.priceUsd!.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                  color: _manager.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14))
+                        else if (ad.priceSyp != null)
+                          Text('${ad.priceSyp!.toStringAsFixed(0)} ل.س',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: Colors.blueGrey)),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on,
+                                color: _manager.primaryColor, size: 12),
+                            const SizedBox(width: 2),
+                            Expanded(
+                              child: Text(
+                                '${ad.governorate} - ${ad.neighborhood}',
+                                style: const TextStyle(
+                                    fontSize: 10, color: Colors.grey),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -2116,8 +2551,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             const Text('غرف المحادثة والتفاوض المباشر',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 6),
-            const Text(
-                'يرجى تسجيل الدخول وتأكيد الحساب للوصول إلى رسائلك وعروض التفاوض.',
+            const Text('يرجى تسجيل الدخول للوصول إلى رسائلك وعروض التفاوض.',
                 style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -2134,53 +2568,71 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
+    if (_userChatThreads.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.mark_chat_unread, color: _manager.primaryColor),
-            const SizedBox(width: 8),
-            const Text('غرف المحادثة والتفاوض المباشر',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            Icon(Icons.chat_bubble_outline,
+                size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            const Text('لا توجد محادثات نشطة حالياً',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.grey)),
+            const SizedBox(height: 6),
+            const Text('تواصل مع أصحاب الإعلانات لبدء التفاوض المباشر.',
+                style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
-        const SizedBox(height: 12),
-        Card(
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _userChatThreads.length,
+      itemBuilder: (ctx, idx) {
+        final thread = _userChatThreads[idx];
+        final senderName = thread['sender_name']?.toString() ?? 'طرف التفاوض';
+        final message = thread['message']?.toString() ?? '';
+        final adId = thread['ad_id']?.toString() ?? '';
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
             leading: CircleAvatar(
-                backgroundColor: _manager.primaryColor,
-                child: const Text('س',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold))),
-            title: const Text('سامر عواد (محادثة تفاوض)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            subtitle: const Text(
-                'أهلاً بك في سوق سوريا الشامل! هل ترغب في بدء صفقة جديدة؟',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-            trailing: const Text('نشط الآن',
-                style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold)),
+              backgroundColor: _manager.primaryColor,
+              child: Text(
+                senderName.isNotEmpty ? senderName[0] : 'S',
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+            title: Text(senderName,
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            subtitle:
+                Text(message, maxLines: 1, overflow: TextOverflow.ellipsis),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (c) => const FullChatNegotiationScreen(
-                    partnerName: 'سامر عواد',
-                    productTitle: 'تفاوض مباشر على سلعة',
-                    initialPrice: 1000,
+                  builder: (c) => FullChatNegotiationScreen(
+                    adId: adId,
+                    partnerName: senderName,
+                    productTitle: 'تفاوض مباشر على السلعة',
+                    initialPrice: 0,
                   ),
                 ),
               );
             },
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -2209,21 +2661,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.favorite, color: Colors.red),
-            const SizedBox(width: 8),
-            Text('إعلاناتك المفضلة (${favAds.length})',
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ...favAds.map((ad) => _buildAdCard(ad)).toList(),
-      ],
+    return GridView.builder(
+      padding: const EdgeInsets.all(10),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.68,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: favAds.length,
+      itemBuilder: (ctx, idx) => _buildGridAdCard(favAds[idx]),
     );
   }
 
@@ -2315,10 +2762,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             title: const Text('تسجيل الخروج',
                 style:
                     TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-            onTap: () {
-              _manager.logoutUser();
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم تسجيل الخروج بنجاح.')));
+            onTap: () async {
+              await _manager.logoutUser();
+              setState(() {
+                _favoriteAdIds.clear();
+                _userChatThreads.clear();
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تم تسجيل الخروج بنجاح.')));
+              }
             },
           ),
         const SizedBox(height: 10),
@@ -2382,8 +2835,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             });
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                  content: Text(
-                      '✨ تم نشر إعلانك وحفظه سحابياً بنجاح بانتظار اعتماد الإدارة!')),
+                  content:
+                      Text('✨ تم نشر إعلانك بنجاح وحفظه سحابياً في Supabase!')),
             );
           },
         ),
@@ -2470,7 +2923,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               ],
             ),
           ),
-          // قسم إخلاء المسؤولية وحقوق النشر الديناميكي أسفل الـ Drawer
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -2509,7 +2961,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 }
 
 // ==============================================================================
-// 7. شاشة المصادقة وتأكيد الحسابات الشاملة (Auth, OTP & Email Verification)
+// 8. شاشة المصادقة وتأكيد الحسابات الشاملة (AuthScreen)
 // ==============================================================================
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -2553,7 +3005,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (phone.length < 9) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('يرجى إدخال رقم هاتف سوري صالح (مثال: 0944000000)')),
+            content: Text('يرجى إدخال رقم هاتف صالح (مثال: 0944000000)')),
       );
       return;
     }
@@ -2571,18 +3023,15 @@ class _AuthScreenState extends State<AuthScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(
-                  '📱 تم إرسال كود التحقق المكون من 6 أرقام إلى $formattedPhone عبر SMS')),
+              content:
+                  Text('📱 تم إرسال كود التحقق إلى $formattedPhone عبر SMS')),
         );
       }
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'ملاحظة التحقق: تم إرسال الرمز التجريبي (123456) بنجاح ($e)')),
+        SnackBar(content: Text('خطأ في إرسال الرمز: $e')),
       );
-      setState(() => _isWaitingForOtp = true);
     }
   }
 
@@ -2591,7 +3040,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (token.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('يرجى إدخال رمز التحقق المكون من 6 أرقام كاملاً')),
+            content: Text('يرجى إدخال رمز التحقق المكون من 6 أرقام')),
       );
       return;
     }
@@ -2606,13 +3055,26 @@ class _AuthScreenState extends State<AuthScreen> {
       final formattedPhone = phone.startsWith('+')
           ? phone
           : '+963${phone.startsWith('0') ? phone.substring(1) : phone}';
-      await Supabase.instance.client.auth
-          .verifyOTP(phone: formattedPhone, token: token, type: OtpType.sms);
+      final res = await Supabase.instance.client.auth.verifyOTP(
+        phone: formattedPhone,
+        token: token,
+        type: OtpType.sms,
+      );
+
+      if (res.user != null) {
+        _manager.setSessionUser(
+            userId: res.user!.id, email: res.user!.email ?? '', name: name);
+        await Supabase.instance.client.from('users_profiles').upsert({
+          'id': res.user!.id,
+          'name': name,
+          'phone': phone,
+          'role': _manager.isSuperAdmin ? 'super_admin' : 'user',
+        });
+      }
     } catch (e) {
       debugPrint('OTP Verification Notice: $e');
     }
 
-    _manager.loginUser(name: name, email: '', phone: phone);
     setState(() => _isLoading = false);
 
     if (mounted) {
@@ -2632,14 +3094,14 @@ class _AuthScreenState extends State<AuthScreen> {
         _passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text(
-                '⚠️ كلمتا المرور غير متطابقتين، يرجى التأكد وإعادة المحاولة.')),
+            content: Text('⚠️ كلمتا المرور غير متطابقتين، يرجى التأكد.')),
       );
       return;
     }
 
     setState(() => _isLoading = true);
     final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
     final name =
         _isSignUp ? _nameController.text.trim() : (email.split('@').first);
     final phone = _phoneController.text.trim();
@@ -2648,7 +3110,8 @@ class _AuthScreenState extends State<AuthScreen> {
       if (_isSignUp) {
         final res = await Supabase.instance.client.auth.signUp(
           email: email,
-          password: _passwordController.text.trim(),
+          password: password,
+          data: {'name': name, 'phone': phone},
         );
 
         setState(() => _isLoading = false);
@@ -2656,36 +3119,51 @@ class _AuthScreenState extends State<AuthScreen> {
         if (res.session == null && res.user != null) {
           if (mounted) _showEmailVerificationDialog(email);
           return;
+        } else if (res.user != null) {
+          _manager.setSessionUser(
+              userId: res.user!.id, email: email, name: name);
+          await Supabase.instance.client.from('users_profiles').upsert({
+            'id': res.user!.id,
+            'name': name,
+            'email': email,
+            'phone': phone,
+            'role': _manager.isSuperAdmin ? 'super_admin' : 'user',
+          });
         }
       } else {
-        await Supabase.instance.client.auth.signInWithPassword(
+        final res = await Supabase.instance.client.auth.signInWithPassword(
           email: email,
-          password: _passwordController.text.trim(),
+          password: password,
         );
+        if (res.user != null) {
+          _manager.setSessionUser(
+              userId: res.user!.id, email: email, name: name);
+        }
+      }
+
+      setState(() => _isLoading = false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🎉 مرحباً بك يا $name في ${_manager.appTitle}!'),
+            backgroundColor: _manager.primaryColor,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+        Navigator.pop(context);
       }
     } catch (e) {
-      debugPrint('Auth Supabase note: $e');
-    }
-
-    _manager.loginUser(
-      name: name.isNotEmpty ? name : 'مستخدم سوق سوريا',
-      email: email,
-      phone: phone.isNotEmpty ? phone : '0944000000',
-    );
-
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('🎉 مرحباً بك يا $name في ${_manager.appTitle}!'),
-          backgroundColor: _manager.primaryColor,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-      Navigator.pop(context);
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('خطأ في تسجيل الدخول: $e'),
+              backgroundColor: Colors.red.shade800),
+        );
+      }
     }
   }
 
@@ -2712,8 +3190,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 style: const TextStyle(
                     fontWeight: FontWeight.bold, color: Colors.blue)),
             const SizedBox(height: 12),
-            const Text(
-                'يرجى فتح بريدك الإلكتروني والضغط على رابط التأكيد لتفعيل حسابك والبدء في نشر الإعلانات.'),
+            const Text('يرجى فتح بريدك والضغط على رابط التأكيد لتفعيل حسابك.'),
           ],
         ),
         actions: [
@@ -3064,7 +3541,7 @@ class _AuthScreenState extends State<AuthScreen> {
 }
 
 // ==============================================================================
-// 8. شاشة إضافة الإعلانات مع الإملاء الصوتي والرفع السحابي (FullAddAdScreen)
+// 9. شاشة إضافة الإعلانات مع الرفع المتعدد للصور وحفظها في Supabase (FullAddAdScreen)
 // ==============================================================================
 class FullAddAdScreen extends StatefulWidget {
   final Function(AdItem) onAdCreated;
@@ -3137,58 +3614,76 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
         TextEditingController(text: _manager.currentUserName);
     _publisherPhoneController =
         TextEditingController(text: _manager.currentUserPhone);
+    if (_manager.categories.isNotEmpty) {
+      _selectedCategory = _manager.categories.first.name;
+      _selectedSubcategory = _manager.categories.first.subcategories.isNotEmpty
+          ? _manager.categories.first.subcategories.first
+          : 'عام';
+    }
   }
 
-  Future<void> _pickAndUploadImage() async {
+  /// فتح المعرض وتحديد عدة صور ورفعها مباشرة إلى Supabase Storage
+  Future<void> _pickMultiImagesAndUpload() async {
     final currentPlan = _manager.getCurrentUserPlan();
-    if (_uploadedImageUrls.length >= currentPlan.maxImagesPerAd) {
+    final remainingAllowed =
+        currentPlan.maxImagesPerAd - _uploadedImageUrls.length;
+
+    if (remainingAllowed <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              '⚠️ لقد وصلت للحد الأقصى لعدد الصور في خطتك (${currentPlan.maxImagesPerAd} صور). يرجى الترقية لباقة VIP.'),
+              '⚠️ لقد وصلت للحد الأقصى لعدد الصور (${currentPlan.maxImagesPerAd} صور).'),
           backgroundColor: Colors.red.shade800,
         ),
       );
       return;
     }
 
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.gallery,
+    final List<XFile> images = await _picker.pickMultiImage(
       imageQuality: 70,
       maxWidth: 1200,
       maxHeight: 1200,
     );
 
-    if (image != null) {
+    if (images.isNotEmpty) {
       setState(() => _isSubmitting = true);
-      try {
-        final Uint8List imageBytes = await image.readAsBytes();
-        setState(() => _previewImageBytes.add(imageBytes));
+      final selectedBatch = images.take(remainingAllowed).toList();
 
-        final fileName =
-            'ad_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+      for (final image in selectedBatch) {
+        try {
+          final Uint8List imageBytes = await image.readAsBytes();
+          setState(() => _previewImageBytes.add(imageBytes));
 
-        await Supabase.instance.client.storage
-            .from(kStorageBucketAds)
-            .uploadBinary(
-              fileName,
-              imageBytes,
-              fileOptions:
-                  const FileOptions(contentType: 'image/jpeg', upsert: true),
-            );
+          final cleanName =
+              image.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+          final fileName =
+              'ad_${DateTime.now().millisecondsSinceEpoch}_$cleanName';
 
-        final publicUrl = Supabase.instance.client.storage
-            .from(kStorageBucketAds)
-            .getPublicUrl(fileName);
-        setState(() => _uploadedImageUrls.add(publicUrl));
-      } catch (e) {
-        debugPrint('Image Upload note: $e');
-        setState(() {
-          _uploadedImageUrls.add(
-              'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=600');
-        });
-      } finally {
-        setState(() => _isSubmitting = false);
+          await Supabase.instance.client.storage
+              .from(kStorageBucketAds)
+              .uploadBinary(
+                fileName,
+                imageBytes,
+                fileOptions:
+                    const FileOptions(contentType: 'image/jpeg', upsert: true),
+              );
+
+          final publicUrl = Supabase.instance.client.storage
+              .from(kStorageBucketAds)
+              .getPublicUrl(fileName);
+          setState(() => _uploadedImageUrls.add(publicUrl));
+        } catch (e) {
+          debugPrint('Multi-image upload error: $e');
+        }
+      }
+
+      setState(() => _isSubmitting = false);
+      if (images.length > remainingAllowed && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('تم رفع أول $remainingAllowed صور فقط بحسب سعة باقتك.')),
+        );
       }
     }
   }
@@ -3198,46 +3693,91 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
     setState(() => _isSubmitting = true);
 
     final currentPlan = _manager.getCurrentUserPlan();
+    final isSuper = _manager.isSuperAdmin;
 
-    final newAd = AdItem(
-      id: 'ad-${DateTime.now().millisecondsSinceEpoch}',
-      userId: _manager.currentUserId,
-      title: _titleController.text.trim(),
-      description: _descController.text.trim(),
-      priceUsd: double.tryParse(_priceUsdController.text.trim()),
-      priceSyp: double.tryParse(_priceSypController.text.trim()),
-      categoryId: _selectedCategory,
-      subcategory: _selectedSubcategory,
-      governorate: _selectedGovernorate,
-      neighborhood: _neighborhoodController.text.trim().isEmpty
+    final newAdData = {
+      'user_id': _manager.currentUserId.isNotEmpty
+          ? _manager.currentUserId
+          : Supabase.instance.client.auth.currentUser?.id,
+      'title': _titleController.text.trim(),
+      'description': _descController.text.trim(),
+      'price_usd': double.tryParse(_priceUsdController.text.trim()),
+      'price_syp': double.tryParse(_priceSypController.text.trim()),
+      'category_id': _selectedCategory,
+      'subcategory': _selectedSubcategory,
+      'governorate': _selectedGovernorate,
+      'neighborhood': _neighborhoodController.text.trim().isEmpty
           ? 'المركز'
           : _neighborhoodController.text.trim(),
-      condition: _condition,
-      tags: _selectedTags,
-      imageUrls: _uploadedImageUrls.isNotEmpty
+      'condition': _condition,
+      'tags': _selectedTags,
+      'image_urls': _uploadedImageUrls.isNotEmpty
           ? _uploadedImageUrls
           : [
               'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600'
             ],
-      videoUrl: currentPlan.customFeatures.any((f) => f.text.contains('فيديو'))
-          ? _videoUrlController.text.trim()
-          : null,
-      publisherName: _publisherNameController.text.trim(),
-      publisherPhone: _publisherPhoneController.text.trim(),
-      publisherEmail: _manager.currentUserEmail,
-      isFeatured: currentPlan.customFeatures.any((f) => f.text.contains('VIP')),
-      allowComments: _allowComments,
-      status: 'pending',
-      createdAt: DateTime.now(),
-    );
+      'video_url':
+          currentPlan.customFeatures.any((f) => f.text.contains('فيديو'))
+              ? _videoUrlController.text.trim()
+              : null,
+      'publisher_name': _publisherNameController.text.trim(),
+      'publisher_phone': _publisherPhoneController.text.trim(),
+      'publisher_email': _manager.currentUserEmail,
+      'is_featured':
+          currentPlan.customFeatures.any((f) => f.text.contains('VIP')),
+      'allow_comments': _allowComments,
+      'status': isSuper ? 'approved' : 'pending',
+      'created_at': DateTime.now().toIso8601String(),
+    };
 
     try {
-      await Supabase.instance.client.from('ads').insert(newAd.toMap());
+      final res = await Supabase.instance.client
+          .from('ads')
+          .insert(newAdData)
+          .select()
+          .single();
+
+      final createdAd = AdItem.fromMap(res);
+      widget.onAdCreated(createdAd);
     } catch (e) {
-      debugPrint('Supabase insert ad notice: $e');
+      debugPrint('Supabase insert ad error: $e');
+      final fallbackAd = AdItem(
+        id: 'ad-${DateTime.now().millisecondsSinceEpoch}',
+        userId: _manager.currentUserId,
+        title: _titleController.text.trim(),
+        description: _descController.text.trim(),
+        priceUsd: double.tryParse(_priceUsdController.text.trim()),
+        priceSyp: double.tryParse(_priceSypController.text.trim()),
+        categoryId: _selectedCategory,
+        subcategory: _selectedSubcategory,
+        governorate: _selectedGovernorate,
+        neighborhood: _neighborhoodController.text.trim().isEmpty
+            ? 'المركز'
+            : _neighborhoodController.text.trim(),
+        condition: _condition,
+        tags: _selectedTags,
+        imageUrls: _uploadedImageUrls.isNotEmpty
+            ? _uploadedImageUrls
+            : [
+                'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600'
+              ],
+        videoUrl:
+            currentPlan.customFeatures.any((f) => f.text.contains('فيديو'))
+                ? _videoUrlController.text.trim()
+                : null,
+        publisherName: _publisherNameController.text.trim(),
+        publisherPhone: _publisherPhoneController.text.trim(),
+        publisherEmail: _manager.currentUserEmail,
+        isFeatured:
+            currentPlan.customFeatures.any((f) => f.text.contains('VIP')),
+        allowComments: _allowComments,
+        status: isSuper ? 'approved' : 'pending',
+        createdAt: DateTime.now(),
+      );
+      widget.onAdCreated(fallbackAd);
     }
 
-    widget.onAdCreated(newAd);
+    setState(() => _isSubmitting = false);
     if (mounted) Navigator.pop(context);
   }
 
@@ -3278,7 +3818,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'أنت تنشر باستخدام "${currentPlan.name}" (الحد الأقصى للصور: ${currentPlan.maxImagesPerAd} صور).',
+                      'أنت تنشر باستخدام "${currentPlan.name}" (مسموح حتى ${currentPlan.maxImagesPerAd} صور).',
                       style: TextStyle(
                           color: _manager.primaryColor,
                           fontSize: 12,
@@ -3349,7 +3889,12 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedCategory,
+                    value: _manager.categories
+                            .any((c) => c.name == _selectedCategory)
+                        ? _selectedCategory
+                        : (_manager.categories.isNotEmpty
+                            ? _manager.categories.first.name
+                            : null),
                     isExpanded: true,
                     decoration: InputDecoration(
                         labelText: 'القسم الرئيسي',
@@ -3499,7 +4044,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('صور الإعلان (من المعرض):',
+                const Text('صور الإعلان (تحديد عدة صور معاً):',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 Text(
@@ -3509,14 +4054,14 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
             ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 85,
+              height: 90,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
                   InkWell(
-                    onTap: _pickAndUploadImage,
+                    onTap: _pickMultiImagesAndUpload,
                     child: Container(
-                      width: 90,
+                      width: 100,
                       decoration: BoxDecoration(
                         color: _manager.primaryColor.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(10),
@@ -3525,18 +4070,20 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.photo_library,
+                          Icon(Icons.add_photo_alternate,
                               color: _manager.primaryColor, size: 28),
                           const SizedBox(height: 4),
-                          Text('من المعرض 🖼️',
+                          Text('تحديد صور متعددة 🖼️',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                   color: _manager.primaryColor,
-                                  fontSize: 10,
+                                  fontSize: 9,
                                   fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   ..._previewImageBytes.asMap().entries.map((entry) {
                     final idx = entry.key;
                     final bytes = entry.value;
@@ -3544,7 +4091,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                       children: [
                         Container(
                           width: 85,
-                          margin: const EdgeInsets.only(right: 8),
+                          margin: const EdgeInsets.only(left: 8),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
                             image: DecorationImage(
@@ -3614,7 +4161,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
 }
 
 // ==============================================================================
-// 9. شاشة تفاصيل الإعلان والحذف النهائي والختم الأحمر (FullAdDetailsScreen)
+// 10. شاشة تفاصيل المنشور وتكبير الصور والختم الأحمر الموحد (FullAdDetailsScreen)
 // ==============================================================================
 class FullAdDetailsScreen extends StatefulWidget {
   final AdItem ad;
@@ -3639,15 +4186,70 @@ class FullAdDetailsScreen extends StatefulWidget {
 class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
   final AppStateManager _manager = AppStateManager();
   late AdItem _ad;
+  int _selectedImageIndex = 0;
   final TextEditingController _negotiateOfferController =
       TextEditingController();
   final TextEditingController _commentController = TextEditingController();
-  final List<String> _comments = [];
+  final List<Map<String, dynamic>> _comments = [];
+  bool _isLoadingComments = false;
 
   @override
   void initState() {
     super.initState();
     _ad = widget.ad;
+    _fetchAdComments();
+  }
+
+  Future<void> _fetchAdComments() async {
+    setState(() => _isLoadingComments = true);
+    try {
+      final res = await Supabase.instance.client
+          .from('ad_comments')
+          .select()
+          .eq('ad_id', _ad.id)
+          .order('created_at', ascending: true);
+      if (res is List) {
+        setState(() {
+          _comments.clear();
+          _comments.addAll(List<Map<String, dynamic>>.from(res));
+        });
+      }
+    } catch (e) {
+      debugPrint('Fetch comments error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingComments = false);
+    }
+  }
+
+  Future<void> _addComment() async {
+    if (!_manager.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ يرجى تسجيل الدخول أولاً للتعليق.')),
+      );
+      return;
+    }
+
+    final commentText = _commentController.text.trim();
+    if (commentText.isEmpty) return;
+
+    final commentData = {
+      'ad_id': _ad.id,
+      'user_id': _manager.currentUserId,
+      'user_name': _manager.currentUserName,
+      'content': commentText,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+
+    setState(() {
+      _comments.add(commentData);
+      _commentController.clear();
+    });
+
+    try {
+      await Supabase.instance.client.from('ad_comments').insert(commentData);
+    } catch (e) {
+      debugPrint('Insert comment error: $e');
+    }
   }
 
   void _openNegotiateDialog() {
@@ -3668,7 +4270,7 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
           children: [
             Icon(Icons.handshake, color: _manager.primaryColor),
             const SizedBox(width: 8),
-            const Text('تقديم عرض سعر وتفاوض مباشر'),
+            const Text('تقديم عرض سعر وتفاوض'),
           ],
         ),
         content: Column(
@@ -3682,7 +4284,7 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
               controller: _negotiateOfferController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'عرضك السعري المقترح (\$ أو ل.س)',
+                labelText: 'عرضك المقترح (\$ أو ل.س)',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -3702,6 +4304,7 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (c) => FullChatNegotiationScreen(
+                      adId: _ad.id,
                       partnerName: _ad.publisherName,
                       productTitle: _ad.title,
                       initialPrice: double.tryParse(offer) ?? _ad.priceUsd ?? 0,
@@ -3710,7 +4313,7 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                 );
               }
             },
-            child: const Text('إرسال وبدء الدردشة 🤝',
+            child: const Text('بدء الدردشة 🤝',
                 style: TextStyle(
                     color: Colors.white, fontWeight: FontWeight.bold)),
           ),
@@ -3719,44 +4322,65 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
     );
   }
 
-  void _toggleSold() async {
-    final updated = _ad.copyWith(isSold: !_ad.isSold);
-    setState(() => _ad = updated);
-    widget.onAdUpdated(updated);
-
-    try {
-      await Supabase.instance.client
-          .from('ads')
-          .update({'is_sold': updated.isSold}).eq('id', updated.id);
-    } catch (e) {
-      debugPrint('Supabase update status note: $e');
-    }
-  }
-
-  void _toggleRedStamp() async {
-    final newStamp = _ad.stampedAt == null ? DateTime.now() : null;
-    final updated = _ad.copyWith(stampedAt: newStamp);
-    setState(() => _ad = updated);
-    widget.onAdUpdated(updated);
-
-    try {
-      await Supabase.instance.client.from('ads').update(
-          {'stamped_at': newStamp?.toIso8601String()}).eq('id', updated.id);
-    } catch (e) {
-      debugPrint('Red Stamp update error: $e');
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(newStamp != null
-              ? '🔴 تم وضع الختم الأحمر: سيتم حذف المنشور ومسح صوره بعد 48 ساعة تلقائياً.'
-              : '🟢 تم إلغاء الختم الأحمر عن المنشور.'),
-          backgroundColor:
-              newStamp != null ? Colors.red.shade900 : Colors.green,
+  /// زر الختم الأحمر الموحد (تم البيع) مع رسالة التأكيد والحذف بعد 48 ساعة
+  void _confirmAndApplySoldStamp() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 8),
+            Text('تأكيد ختم "تم البيع"'),
+          ],
         ),
-      );
-    }
+        content: const Text(
+          'عند تأكيد تم البيع، سيتم عرض الختم للجميع وسيتم حذف المنشور نهائياً خلال 48 ساعة.\n\nهل أنت متأكد من إتمام العملية؟',
+          style: TextStyle(height: 1.5, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(backgroundColor: Colors.red.shade800),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final now = DateTime.now();
+              final updated = _ad.copyWith(
+                isSold: true,
+                soldAt: now,
+              );
+              setState(() => _ad = updated);
+              widget.onAdUpdated(updated);
+
+              try {
+                await Supabase.instance.client.from('ads').update({
+                  'is_sold': true,
+                  'sold_at': now.toIso8601String(),
+                }).eq('id', updated.id);
+              } catch (e) {
+                debugPrint('Supabase sold status update error: $e');
+              }
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        '🔴 تم وضع ختم "تم البيع" وسيتم حذف الإعلان نهائياً بعد 48 ساعة.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('نعم، تأكيد تم البيع ✓',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _deleteAdPermanently() async {
@@ -3773,14 +4397,22 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text(
-                '🗑️ تم حذف المنشور ومسح صوره نهائياً من السيرفر لتوفير المساحة.')),
+            content: Text('🗑️ تم حذف المنشور ومسح صوره نهائياً من Supabase.')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final images = _ad.imageUrls.isNotEmpty
+        ? _ad.imageUrls
+        : [
+            'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600'
+          ];
+
+    final isOwnerOrAdmin = _manager.isSuperAdmin ||
+        (_manager.isLoggedIn && _ad.userId == _manager.currentUserId);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: _manager.appBarColor,
@@ -3793,7 +4425,9 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
               tooltip: 'قراءة الإعلان صوتياً',
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('🔊 جاري قراءة تفاصيل: ${_ad.title}')),
+                  SnackBar(
+                      content: Text(
+                          '🔊 تفاصيل الإعلان: ${_ad.title} - السعر: ${_ad.priceUsd != null ? "${_ad.priceUsd} دولار" : "${_ad.priceSyp} ليرة"}')),
                 );
               },
             ),
@@ -3806,63 +4440,129 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.only(bottom: 30),
         children: [
-          Stack(
-            children: [
-              Container(
-                height: 280,
-                width: double.infinity,
-                color: const Color(0xFF0F172A),
-                child: Image.network(
-                  _ad.imageUrls.isNotEmpty ? _ad.imageUrls.first : '',
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Center(
-                      child:
-                          Icon(Icons.image, size: 60, color: Colors.white38)),
-                ),
-              ),
-              if (_ad.stampedAt != null)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade900,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Text('🔴 خـتـم أحـمـر (حذف خلال 48 ساعة)',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12)),
+          // 1. المربع الكبير لعرض الصورة المحددة
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (ctx) => FullScreenImageViewer(
+                    imageUrls: images,
+                    initialIndex: _selectedImageIndex,
                   ),
                 ),
-              if (_ad.isSold)
-                Positioned.fill(
+              );
+            },
+            child: Stack(
+              children: [
+                Container(
+                  height: 280,
+                  width: double.infinity,
+                  color: const Color(0xFF0F172A),
+                  child: Image.network(
+                    images[_selectedImageIndex],
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Center(
+                        child:
+                            Icon(Icons.image, size: 60, color: Colors.white38)),
+                  ),
+                ),
+                Positioned(
+                  bottom: 12,
+                  left: 12,
                   child: Container(
-                    color: Colors.black54,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 8),
-                        decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(8)),
-                        child: const Text('✓ تـم الـبـيـع بالكامل',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20)),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                        SizedBox(width: 4),
+                        Text('انقر للتكبير الكامل',
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_ad.isSold)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black54,
+                      child: Center(
+                        child: Transform.rotate(
+                          angle: -0.15,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 22, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade800,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Text('✓ تـم الـبـيـع',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20)),
+                                SizedBox(height: 2),
+                                Text('سيتم حذف الإعلان نهائياً خلال 48 ساعة',
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 10)),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
+
+          // 2. شريط الصور المصغرة Thumbnails تحت الصورة الكبيرة
+          if (images.length > 1) ...[
+            Container(
+              height: 75,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              color: Colors.grey.shade900,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: images.length,
+                itemBuilder: (ctx, idx) {
+                  final isSelected = idx == _selectedImageIndex;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedImageIndex = idx),
+                    child: Container(
+                      width: 60,
+                      margin: const EdgeInsets.only(left: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected
+                              ? _manager.secondaryColor
+                              : Colors.transparent,
+                          width: 2.5,
+                        ),
+                        image: DecorationImage(
+                          image: NetworkImage(images[idx]),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -3899,7 +4599,7 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                       onPressed: _openNegotiateDialog,
                       icon: Icon(Icons.handshake,
                           color: _manager.primaryColor, size: 18),
-                      label: Text('تفاوض على السعر 🤝',
+                      label: Text('تفاوض 🤝',
                           style: TextStyle(
                               color: _manager.primaryColor,
                               fontWeight: FontWeight.bold,
@@ -3907,7 +4607,7 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text('${_ad.governorate} - ${_ad.neighborhood}',
                     style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 14),
@@ -3931,54 +4631,67 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                   ),
                 ],
                 const SizedBox(height: 16),
-                if (_manager.isSuperAdmin ||
-                    _ad.userId == _manager.currentUserId) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _toggleSold,
-                          child: Text(_ad.isSold
-                              ? 'إلغاء تم البيع'
-                              : 'تمييز: تم البيع ✓'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red.shade900),
-                          onPressed: _deleteAdPermanently,
-                          child: const Text('حذف نهائي + مسح الصورة 🗑️',
-                              style:
-                                  TextStyle(color: Colors.white, fontSize: 12)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_manager.isSuperAdmin) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: _ad.stampedAt == null
-                                ? Colors.red.shade800
-                                : Colors.green.shade800),
-                        icon: const Icon(Icons.verified_outlined,
-                            color: Colors.white),
-                        label: Text(
-                          _ad.stampedAt == null
-                              ? 'وضع الختم الأحمر (مؤقت 48 ساعة)'
-                              : 'إلغاء الختم الأحمر',
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                        onPressed: _toggleRedStamp,
-                      ),
+
+                // 3. قسم أزرار المالك والأدمن
+                if (isOwnerOrAdmin) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
                     ),
-                  ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                            'إجراءات التحكم بالمنشور (خاص بصاحب الإعلان والمشرف):',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            if (!_ad.isSold)
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red.shade800),
+                                  icon: const Icon(Icons.verified,
+                                      color: Colors.white, size: 18),
+                                  label: const Text('ختم تم البيع 🔴',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13)),
+                                  onPressed: _confirmAndApplySoldStamp,
+                                ),
+                              )
+                            else
+                              const Expanded(
+                                child: Text(
+                                    'الإعلان مختوم بـ "تم البيع" وسيتم حذفه تلقائياً.',
+                                    style: TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12)),
+                              ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                  side: const BorderSide(color: Colors.red)),
+                              icon: const Icon(Icons.delete_forever, size: 18),
+                              label: const Text('حذف فوري',
+                                  style: TextStyle(fontSize: 12)),
+                              onPressed: _deleteAdPermanently,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
+
                 const SizedBox(height: 20),
                 const Divider(),
                 const Text('التعليقات والاستفسارات العامة:',
@@ -4000,27 +4713,17 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                       style: IconButton.styleFrom(
                           backgroundColor: _manager.buttonColor),
                       icon: const Icon(Icons.send, color: Colors.white),
-                      onPressed: () {
-                        if (!_manager.isLoggedIn) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content:
-                                      Text('⚠️ يرجى تسجيل الدخول للتعليق.')));
-                          return;
-                        }
-                        if (_commentController.text.isNotEmpty) {
-                          setState(() {
-                            _comments.add(
-                                '${_manager.currentUserName}: ${_commentController.text.trim()}');
-                            _commentController.clear();
-                          });
-                        }
-                      },
+                      onPressed: _addComment,
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
-                if (_comments.isEmpty)
+                if (_isLoadingComments)
+                  const Center(
+                      child: Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: CircularProgressIndicator()))
+                else if (_comments.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: Text('لا توجد تعليقات بعد، كن أول من يعلق!',
@@ -4029,11 +4732,23 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                 else
                   ..._comments.map((c) => Container(
                         margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                             color: Colors.grey.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(8)),
-                        child: Text('• $c'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(c['user_name'] ?? 'مستخدم',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: _manager.primaryColor)),
+                            const SizedBox(height: 2),
+                            Text(c['content'] ?? '',
+                                style: const TextStyle(fontSize: 13)),
+                          ],
+                        ),
                       )),
               ],
             ),
@@ -4088,7 +4803,7 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
 }
 
 // ==============================================================================
-// 10. شاشة طرق الدفع والتحويل وإرفاق الإيصالات (FullPaymentMethodsScreen)
+// 11. شاشة طرق الدفع والتحويل المالي السحابية (FullPaymentMethodsScreen)
 // ==============================================================================
 class FullPaymentMethodsScreen extends StatefulWidget {
   const FullPaymentMethodsScreen({Key? key}) : super(key: key);
@@ -4115,6 +4830,14 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
   }
 
   Future<void> _submitReceipt() async {
+    if (!_manager.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('⚠️ يرجى تسجيل الدخول أولاً لرفع إشعار التحويل.')),
+      );
+      return;
+    }
+
     if (_receiptBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('⚠️ يرجى إرفاق صورة إشعار التحويل أولاً')),
@@ -4124,7 +4847,8 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
 
     setState(() => _isUploadingReceipt = true);
     try {
-      final fileName = 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName =
+          'receipt_${DateTime.now().millisecondsSinceEpoch}_${_manager.currentUserId}.jpg';
       await Supabase.instance.client.storage
           .from(kStorageBucketReceipts)
           .uploadBinary(
@@ -4141,8 +4865,10 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
       await Supabase.instance.client.from('receipts').insert({
         'user_id': _manager.currentUserId,
         'user_name': _manager.currentUserName,
+        'user_email': _manager.currentUserEmail,
         'receipt_url': publicUrl,
         'notes': _notesController.text.trim(),
+        'status': 'pending',
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -4150,7 +4876,7 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text(
-                  '✅ تم إرسال الإشعار للإدارة بنجاح! سيتم تفعيل حسابك خلال دقائق.')),
+                  '✅ تم رفع وحفظ إشعار التحويل في Supabase! سيتم تفعيل حسابك فوراً.')),
         );
         Navigator.pop(context);
       }
@@ -4158,7 +4884,7 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
       debugPrint('Receipt Upload Notice: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ تم استلام طلب التحويل بنجاح!')),
+          const SnackBar(content: Text('✅ تم إرسال الطلب بنجاح!')),
         );
         Navigator.pop(context);
       }
@@ -4172,7 +4898,7 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: _manager.appBarColor,
-        title: const Text('طرق الدفع والتواصل المعتمدة 💳',
+        title: const Text('طرق الدفع والتواصل 💳',
             style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -4217,8 +4943,7 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                    'رقم الحساب / الكاش: ${method.accountNumber}',
+                                Text('رقم الحساب: ${method.accountNumber}',
                                     style: TextStyle(
                                         color: _manager.primaryColor,
                                         fontWeight: FontWeight.bold,
@@ -4251,13 +4976,13 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
               .toList(),
           const SizedBox(height: 16),
           const Divider(),
-          const Text('إرفاق إشعار أو إيصال التحويل المالي:',
+          const Text('إرفاق إشعار التحويل المالي:',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 10),
           InkWell(
             onTap: _pickReceiptImage,
             child: Container(
-              height: 140,
+              height: 130,
               decoration: BoxDecoration(
                 color: _manager.primaryColor.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(14),
@@ -4273,11 +4998,11 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.upload_file,
-                            size: 40, color: _manager.primaryColor),
+                            size: 36, color: _manager.primaryColor),
                         const SizedBox(height: 6),
-                        const Text('اضغط هنا لاختيار صورة الإيصال من المعرض',
+                        const Text('اضغط لاختيار صورة الإيصال من المعرض',
                             style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13)),
+                                fontWeight: FontWeight.bold, fontSize: 12)),
                       ],
                     ),
             ),
@@ -4286,7 +5011,7 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
           TextField(
             controller: _notesController,
             decoration: const InputDecoration(
-                labelText: 'ملاحظات إضافية أو رقم المعاملة...',
+                labelText: 'ملاحظات أو رقم المعاملة...',
                 border: OutlineInputBorder()),
           ),
           const SizedBox(height: 16),
@@ -4300,7 +5025,7 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
               icon: const Icon(Icons.send, color: Colors.white),
               label: _isUploadingReceipt
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('إرسال الإشعار للإدارة لتفعيل الباقة فوراً 🚀',
+                  : const Text('إرسال الإشعار لتفعيل الباقة فوراً 🚀',
                       style: TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold)),
               onPressed: _isUploadingReceipt ? null : _submitReceipt,
@@ -4313,15 +5038,17 @@ class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
 }
 
 // ==============================================================================
-// 11. شاشة المحادثة والتفاوض السعري (Chat & Negotiations)
+// 12. شاشة التفاوض والدردشة الحقيقية (FullChatNegotiationScreen)
 // ==============================================================================
 class FullChatNegotiationScreen extends StatefulWidget {
+  final String adId;
   final String partnerName;
   final String productTitle;
   final double initialPrice;
 
   const FullChatNegotiationScreen({
     Key? key,
+    this.adId = '',
     required this.partnerName,
     required this.productTitle,
     required this.initialPrice,
@@ -4336,40 +5063,80 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
   final AppStateManager _manager = AppStateManager();
   final TextEditingController _msgController = TextEditingController();
   final List<ChatMessage> _messages = [];
+  bool _isLoadingMessages = false;
 
   @override
   void initState() {
     super.initState();
-    _messages.add(
-      ChatMessage(
-        id: 'msg-init',
-        senderName: _manager.currentUserName,
-        senderEmail: _manager.currentUserEmail,
-        message:
-            'مرحباً، أود بدء التفاوض حول "${widget.productTitle}" بسعر \$${widget.initialPrice.toStringAsFixed(0)}.',
-        timestamp: DateTime.now(),
-        isMe: true,
-        offerAmount: widget.initialPrice,
-      ),
-    );
+    _fetchLiveChatMessages();
   }
 
-  void _sendMessage() {
+  Future<void> _fetchLiveChatMessages() async {
+    setState(() => _isLoadingMessages = true);
+    try {
+      final res = await Supabase.instance.client
+          .from('chat_messages')
+          .select()
+          .order('created_at', ascending: true);
+
+      if (res is List && res.isNotEmpty) {
+        setState(() {
+          _messages.clear();
+          _messages.addAll(res.map((r) => ChatMessage.fromMap(
+              r as Map<String, dynamic>, _manager.currentUserId)));
+        });
+      } else {
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              id: 'msg-init',
+              adId: widget.adId,
+              senderId: _manager.currentUserId,
+              senderName: _manager.currentUserName,
+              senderEmail: _manager.currentUserEmail,
+              message:
+                  'مرحباً، أود بدء التفاوض حول "${widget.productTitle}" بسعر \$${widget.initialPrice.toStringAsFixed(0)}.',
+              timestamp: DateTime.now(),
+              isMe: true,
+              offerAmount: widget.initialPrice,
+            ),
+          );
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching chat messages: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingMessages = false);
+    }
+  }
+
+  Future<void> _sendMessage() async {
     final txt = _msgController.text.trim();
     if (txt.isEmpty) return;
+
+    final newMsg = ChatMessage(
+      id: 'msg-${DateTime.now().millisecondsSinceEpoch}',
+      adId: widget.adId,
+      senderId: _manager.currentUserId,
+      senderName: _manager.currentUserName,
+      senderEmail: _manager.currentUserEmail,
+      message: txt,
+      timestamp: DateTime.now(),
+      isMe: true,
+    );
+
     setState(() {
-      _messages.add(
-        ChatMessage(
-          id: 'msg-${DateTime.now().millisecondsSinceEpoch}',
-          senderName: _manager.currentUserName,
-          senderEmail: _manager.currentUserEmail,
-          message: txt,
-          timestamp: DateTime.now(),
-          isMe: true,
-        ),
-      );
+      _messages.add(newMsg);
       _msgController.clear();
     });
+
+    try {
+      await Supabase.instance.client
+          .from('chat_messages')
+          .insert(newMsg.toMap());
+    } catch (e) {
+      debugPrint('Error inserting chat message: $e');
+    }
   }
 
   @override
@@ -4391,37 +5158,44 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: _messages.length,
-              itemBuilder: (ctx, idx) {
-                final msg = _messages[idx];
-                return Align(
-                  alignment:
-                      msg.isMe ? Alignment.centerLeft : Alignment.centerRight,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
+            child: _isLoadingMessages
+                ? Center(
+                    child:
+                        CircularProgressIndicator(color: _manager.primaryColor))
+                : ListView.builder(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: msg.isMe
-                          ? _manager.primaryColor.withOpacity(0.15)
-                          : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(msg.message, style: const TextStyle(fontSize: 14)),
-                        const SizedBox(height: 4),
-                        Text('${msg.timestamp.hour}:${msg.timestamp.minute}',
-                            style: const TextStyle(
-                                fontSize: 10, color: Colors.grey)),
-                      ],
-                    ),
+                    itemCount: _messages.length,
+                    itemBuilder: (ctx, idx) {
+                      final msg = _messages[idx];
+                      return Align(
+                        alignment: msg.isMe
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: msg.isMe
+                                ? _manager.primaryColor.withOpacity(0.15)
+                                : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(msg.message,
+                                  style: const TextStyle(fontSize: 14)),
+                              const SizedBox(height: 4),
+                              Text(
+                                  '${msg.timestamp.hour}:${msg.timestamp.minute.toString().padLeft(2, "0")}',
+                                  style: const TextStyle(
+                                      fontSize: 10, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           Container(
             padding: const EdgeInsets.all(8),
@@ -4453,7 +5227,7 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
 }
 
 // ==============================================================================
-// 12. شاشة باقات وترقيات VIP (FullSubscriptionPlansScreen)
+// 13. شاشة باقات وترقيات VIP الذهبية (FullSubscriptionPlansScreen)
 // ==============================================================================
 class FullSubscriptionPlansScreen extends StatelessWidget {
   const FullSubscriptionPlansScreen({Key? key}) : super(key: key);
@@ -4523,7 +5297,7 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                           color: Colors.blueGrey.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4)),
-                      child: Text('الحالة والشرط: ${plan.statusConditionText}',
+                      child: Text('الحالة: ${plan.statusConditionText}',
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -4556,13 +5330,25 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
                             backgroundColor: isVip
                                 ? manager.buttonColor
                                 : Colors.grey.shade300),
-                        onPressed: () {
+                        onPressed: () async {
                           manager.currentUserPlanId = plan.id;
                           manager.notifyListeners();
+                          if (manager.isLoggedIn &&
+                              manager.currentUserId.isNotEmpty) {
+                            try {
+                              await Supabase.instance.client
+                                  .from('users_profiles')
+                                  .update({
+                                'plan_id': plan.id,
+                              }).eq('id', manager.currentUserId);
+                            } catch (e) {
+                              debugPrint('Error updating user plan: $e');
+                            }
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                                 content:
-                                    Text('🎉 تم تفعيل ${plan.name} بنجاح!')),
+                                    Text('🎉 تم اختيار ${plan.name} بنجاح!')),
                           );
                           Navigator.pop(context);
                         },
@@ -4588,7 +5374,7 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
 }
 
 // ==============================================================================
-// 13. لوحة تحكم غرفة العمليات التنفيذية المخصصة (Executive Admin Dashboard)
+// 14. غرفة العمليات ولوحة تحكم المشرفين التنفيذية (FullAdminPanelScreen)
 // ==============================================================================
 class FullAdminPanelScreen extends StatefulWidget {
   final int initialTab;
@@ -4609,15 +5395,12 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
   late TextEditingController _maintMsgController;
   late TextEditingController _disclaimerController;
 
-  // إدارة الأقسام
   final TextEditingController _categoryNameController = TextEditingController();
   double _catRadius = 12.0;
   IconData _selectedCatIcon = Icons.category;
 
-  // إدارة الأخبار
   final TextEditingController _newsInputController = TextEditingController();
 
-  // إدارة البنرات المربعة
   final TextEditingController _bannerTitleController = TextEditingController();
   final TextEditingController _bannerSubController = TextEditingController();
   final TextEditingController _bannerUrlController = TextEditingController();
@@ -4663,7 +5446,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     }
   }
 
-  /// الرفع والنشر الحقيقي للبنر السحابي إلى Supabase Storage & Database
   Future<void> _publishBannerToSupabase() async {
     final title = _bannerTitleController.text.trim();
     if (title.isEmpty) {
@@ -4692,16 +5474,20 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
             .getPublicUrl(fileName);
       }
 
-      final newBanner = BannerItem(
-        id: 'banner-${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        subtitle: _bannerSubController.text.trim(),
-        imageUrl: finalImageUrl,
-        targetUrl: _bannerUrlController.text.trim(),
-        position: _bannerPosition,
-      );
+      final newBannerData = {
+        'title': title,
+        'subtitle': _bannerSubController.text.trim(),
+        'image_url': finalImageUrl,
+        'target_url': _bannerUrlController.text.trim(),
+        'position': _bannerPosition,
+      };
 
-      await Supabase.instance.client.from('banners').insert(newBanner.toMap());
+      final res = await Supabase.instance.client
+          .from('banners')
+          .insert(newBannerData)
+          .select()
+          .single();
+      final newBanner = BannerItem.fromMap(res);
 
       setState(() {
         _manager.banners.add(newBanner);
@@ -4715,17 +5501,11 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  '🚀 تم رفع ونشر البنر المربع سحابياً بنجاح في Supabase!')),
+              content: Text('🚀 تم رفع ونشر البنر سحابياً في Supabase بنجاح!')),
         );
       }
     } catch (e) {
       debugPrint('Banner publish notice: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تم نشر البنر بنجاح: $e')),
-        );
-      }
     } finally {
       if (mounted) setState(() => _isPublishingBanner = false);
     }
@@ -4832,18 +5612,16 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
             child: Column(
               children: [
                 TextField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(
-                      labelText: 'اسم التطبيق الرئيسي',
-                      border: OutlineInputBorder()),
-                ),
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                        labelText: 'اسم التطبيق الرئيسي',
+                        border: OutlineInputBorder())),
                 const SizedBox(height: 10),
                 TextField(
-                  controller: _subtitleController,
-                  decoration: const InputDecoration(
-                      labelText: 'العنوان الفرعي',
-                      border: OutlineInputBorder()),
-                ),
+                    controller: _subtitleController,
+                    decoration: const InputDecoration(
+                        labelText: 'العنوان الفرعي',
+                        border: OutlineInputBorder())),
                 const SizedBox(height: 12),
                 SwitchListTile(
                   title: const Text('تفعيل "وضع الصيانة" الفوري'),
@@ -4859,27 +5637,22 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                 if (_manager.isMaintenanceMode) ...[
                   const SizedBox(height: 8),
                   TextField(
-                    controller: _maintMsgController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                        labelText: 'رسالة الصيانة التي تظهر للمستخدمين',
-                        border: OutlineInputBorder()),
-                  ),
+                      controller: _maintMsgController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                          labelText: 'رسالة الصيانة',
+                          border: OutlineInputBorder())),
                 ],
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _disclaimerController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                      labelText:
-                          'نص إخلاء المسؤولية وحقوق النشر (أسفل القائمة الجانبية)',
-                      border: OutlineInputBorder()),
-                ),
+                    controller: _disclaimerController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                        labelText: 'نص إخلاء المسؤولية وحقوق النشر',
+                        border: OutlineInputBorder())),
                 const SizedBox(height: 12),
                 SwitchListTile(
                   title: const Text('تفعيل الإملاء الصوتي 🎙️'),
-                  subtitle: const Text(
-                      'تمكين التحدث لإدخال النصوص في البحث ونشر الإعلانات'),
                   value: _manager.isVoiceTypingEnabled,
                   activeColor: _manager.primaryColor,
                   onChanged: (val) {
@@ -4889,8 +5662,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                 ),
                 SwitchListTile(
                   title: const Text('تفعيل القراءة الصوتية (TTS) 🔊'),
-                  subtitle:
-                      const Text('قراءة مواصفات الإعلانات صوتياً بنقرة واحدة'),
                   value: _manager.isTextToSpeechEnabled,
                   activeColor: _manager.primaryColor,
                   onChanged: (val) {
@@ -4904,17 +5675,18 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                         backgroundColor: _manager.buttonColor),
-                    onPressed: () {
-                      _manager.updateAppConfig(
+                    onPressed: () async {
+                      await _manager.updateAppConfig(
                         title: _titleController.text.trim(),
                         subtitle: _subtitleController.text.trim(),
                         maintMsg: _maintMsgController.text.trim(),
                         disclaimer: _disclaimerController.text.trim(),
                       );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('✨ تم حفظ الإعدادات سحابياً بنجاح!')),
-                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text(
+                                '✨ تم حفظ الإعدادات سحابياً في Supabase بنجاح!')));
+                      }
                     },
                     child: const Text('حفظ التعديلات سحابياً 💾',
                         style: TextStyle(
@@ -4978,7 +5750,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
           children: const [
             Icon(Icons.check_circle_outline, size: 60, color: Colors.green),
             SizedBox(height: 12),
-            Text('رائع! لا توجد إعلانات معلقة بانتظار المراجعة.',
+            Text('لا توجد إعلانات معلقة بانتظار المراجعة.',
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -4995,8 +5767,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
         final ad = pendingAds[idx];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -5008,12 +5778,12 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                       borderRadius: BorderRadius.circular(8),
                       child: Image.network(
                           ad.imageUrls.isNotEmpty ? ad.imageUrls.first : '',
-                          width: 70,
-                          height: 70,
+                          width: 65,
+                          height: 65,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
-                              width: 70,
-                              height: 70,
+                              width: 65,
+                              height: 65,
                               color: Colors.grey.shade300,
                               child: const Icon(Icons.image))),
                     ),
@@ -5033,7 +5803,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                                   fontSize: 11, color: Colors.grey)),
                           const SizedBox(height: 2),
                           Text(
-                              'السعر: ${ad.priceUsd != null ? "\$${ad.priceUsd}" : "${ad.priceSyp} ل.س"} | ${ad.governorate}',
+                              'السعر: ${ad.priceUsd != null ? "\$${ad.priceUsd}" : "${ad.priceSyp} ل.س"}',
                               style: TextStyle(
                                   fontSize: 11,
                                   color: _manager.primaryColor,
@@ -5049,11 +5819,10 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                     Expanded(
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade700,
-                            padding: const EdgeInsets.symmetric(vertical: 12)),
+                            backgroundColor: Colors.green.shade700),
                         icon:
                             const Icon(Icons.check_circle, color: Colors.white),
-                        label: const Text('قبول الإعلان ✔',
+                        label: const Text('قبول ✔',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold)),
@@ -5079,8 +5848,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                     Expanded(
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade700,
-                            padding: const EdgeInsets.symmetric(vertical: 12)),
+                            backgroundColor: Colors.red.shade700),
                         icon: const Icon(Icons.cancel, color: Colors.white),
                         label: const Text('رفض ✖',
                             style: TextStyle(
@@ -5137,19 +5905,14 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('إضافة قسم جديد وتخصيص شكله وأيقونته:',
+        const Text('إضافة قسم جديد:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 8),
         TextField(
-          controller: _categoryNameController,
-          decoration: const InputDecoration(
-              hintText: 'اسم القسم (مثلاً: ⚡ طاقة شمسية)...',
-              border: OutlineInputBorder()),
-        ),
+            controller: _categoryNameController,
+            decoration: const InputDecoration(
+                hintText: 'اسم القسم...', border: OutlineInputBorder())),
         const SizedBox(height: 10),
-        const Text('اختر أيقونة للقسم:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        const SizedBox(height: 6),
         Wrap(
           spacing: 8,
           children: availableIcons.map((ic) {
@@ -5176,7 +5939,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                 DropdownMenuItem(
                     value: 12.0, child: Text('حواف منحنية (12px)')),
                 DropdownMenuItem(
-                    value: 24.0, child: Text('حواف دائرية بالكامل (24px)')),
+                    value: 24.0, child: Text('حواف دائرية (24px)')),
               ],
               onChanged: (val) {
                 if (val != null) setState(() => _catRadius = val);
@@ -5189,7 +5952,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
           style:
               ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
           icon: const Icon(Icons.add, color: Colors.white),
-          label: const Text('إضافة القسم المخصص وحفظه سحابياً',
+          label: const Text('إضافة وحفظ القسم سحابياً',
               style:
                   TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           onPressed: () async {
@@ -5202,7 +5965,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                 backgroundColor: _manager.primaryColor,
                 textColor: Colors.white,
                 borderRadiusValue: safeRadius,
-                subcategories: ['عام', 'مستلزمات وملحقات'],
+                subcategories: ['عام', 'ملحقات'],
               );
               setState(() {
                 _manager.categories.add(newCat);
@@ -5226,8 +5989,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                     leading: Icon(c.iconData, color: _manager.primaryColor),
                     title: Text(c.name,
                         style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle:
-                        Text('الأقسام الفرعية: ${c.subcategories.join("، ")}'),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () async {
@@ -5254,7 +6015,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('إدارة الخطط والباقات وتعديلها سحابياً فوراً:',
+        const Text('إدارة الخطط والباقات:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 10),
         ..._manager.plans.asMap().entries.map((entry) {
@@ -5300,7 +6061,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                       TextField(
                         controller: conditionCtrl,
                         decoration: const InputDecoration(
-                            labelText: 'شرط وحالة الباقة (نص يدوي حر)',
+                            labelText: 'شرط وحالة الباقة',
                             border: OutlineInputBorder()),
                         onChanged: (val) async {
                           final updated =
@@ -5315,35 +6076,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                             debugPrint('Plan condition notice: $e');
                           }
                         },
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('الحد الأقصى للصور في الإعلان:'),
-                          DropdownButton<int>(
-                            value: plan.maxImagesPerAd,
-                            items: [1, 2, 3, 5, 8, 10, 15]
-                                .map((n) => DropdownMenuItem(
-                                    value: n, child: Text('$n صور')))
-                                .toList(),
-                            onChanged: (val) async {
-                              if (val != null) {
-                                final updated =
-                                    plan.copyWith(maxImagesPerAd: val);
-                                setState(() => _manager.plans[idx] = updated);
-                                _manager.notifyListeners();
-                                try {
-                                  await Supabase.instance.client
-                                      .from('plans')
-                                      .upsert(updated.toMap());
-                                } catch (e) {
-                                  debugPrint('Plan images notice: $e');
-                                }
-                              }
-                            },
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -5373,11 +6105,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
         'primary': const Color(0xFF881337),
         'gold': const Color(0xFFFBBF24)
       },
-      {
-        'name': 'الزمردي الحديث',
-        'primary': const Color(0xFF065F46),
-        'gold': const Color(0xFF34D399)
-      },
     ];
 
     return ListView(
@@ -5404,10 +6131,9 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                           appBar: t['primary'] as Color,
                           button: t['primary'] as Color,
                         );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text('✨ تم تطبيق ثيم ${t["name"]}!')),
-                        );
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(
+                                '✨ تم تطبيق وحفظ ثيم ${t["name"]} في قاعدة البيانات!')));
                       },
                       child: const Text('تطبيق الثيم',
                           style: TextStyle(color: Colors.white)),
@@ -5424,8 +6150,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
       Icons.campaign,
       Icons.local_fire_department,
       Icons.star,
-      Icons.notifications_active,
-      Icons.flash_on
+      Icons.notifications_active
     ];
 
     return ListView(
@@ -5452,7 +6177,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
             ),
           ],
         ),
-        const Text('أيقونة شريط الأخبار:'),
         Wrap(
           spacing: 8,
           children: tickerIcons.map((ic) {
@@ -5474,18 +6198,17 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
         Row(
           children: [
             Expanded(
-              child: TextField(
-                  controller: _newsInputController,
-                  decoration: const InputDecoration(
-                      hintText: 'اكتب نص الخبر الجديد...',
-                      border: OutlineInputBorder())),
-            ),
+                child: TextField(
+                    controller: _newsInputController,
+                    decoration: const InputDecoration(
+                        hintText: 'نص الخبر الجديد...',
+                        border: OutlineInputBorder()))),
             const SizedBox(width: 8),
             IconButton(
               style:
                   IconButton.styleFrom(backgroundColor: _manager.buttonColor),
               icon: const Icon(Icons.add, color: Colors.white),
-              onPressed: () {
+              onPressed: () async {
                 final txt = _newsInputController.text.trim();
                 if (txt.isNotEmpty) {
                   setState(() {
@@ -5493,6 +6216,13 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                     _newsInputController.clear();
                   });
                   _manager.notifyListeners();
+                  try {
+                    await Supabase.instance.client
+                        .from('news_ticker')
+                        .insert({'text': txt});
+                  } catch (e) {
+                    debugPrint('News ticker insert note: $e');
+                  }
                 }
               },
             ),
@@ -5500,32 +6230,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
         ),
         const SizedBox(height: 16),
         const Divider(),
-        const Text(
-            'إدارة البنرات المزدوجة المربعة والرفع الحقيقي (Square Banners):',
+        const Text('إدارة البنرات الإعلانية والرفع الحقيقي:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Text('مؤقت تقليب البنرات بالثواني:'),
-            const SizedBox(width: 10),
-            DropdownButton<int>(
-              value: _manager.topBannerIntervalSeconds,
-              items: [2, 3, 4, 5, 7, 10]
-                  .map((s) =>
-                      DropdownMenuItem(value: s, child: Text('$s ثوانٍ')))
-                  .toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    _manager.topBannerIntervalSeconds = val;
-                    _manager.bottomBannerIntervalSeconds = val;
-                  });
-                  _manager.notifyListeners();
-                }
-              },
-            ),
-          ],
-        ),
         const SizedBox(height: 8),
         TextField(
             controller: _bannerTitleController,
@@ -5544,8 +6250,6 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text('القسم:'),
-            const SizedBox(width: 10),
             ChoiceChip(
               label: const Text('القسم العلوي'),
               selected: _bannerPosition == 'top',
@@ -5565,7 +6269,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
         InkWell(
           onTap: _pickBannerImage,
           child: Container(
-            height: 110,
+            height: 100,
             decoration: BoxDecoration(
               color: _manager.primaryColor.withOpacity(0.06),
               borderRadius: BorderRadius.circular(12),
@@ -5580,11 +6284,11 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.add_photo_alternate,
-                          color: _manager.primaryColor, size: 36),
+                          color: _manager.primaryColor, size: 30),
                       const SizedBox(height: 4),
-                      const Text('اختر صورة البنر المربع من المعرض 🖼️',
+                      const Text('اختر صورة البنر من المعرض 🖼️',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 12)),
+                              fontWeight: FontWeight.bold, fontSize: 11)),
                     ],
                   ),
           ),
@@ -5592,24 +6296,20 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
-          height: 50,
+          height: 48,
           child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: _manager.buttonColor,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12))),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
             icon: const Icon(Icons.cloud_upload, color: Colors.white),
             label: _isPublishingBanner
                 ? const CircularProgressIndicator(color: Colors.white)
-                : const Text('نشر البنرات الآن 🚀',
+                : const Text('نشر البنر الآن 🚀',
                     style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16)),
+                        color: Colors.white, fontWeight: FontWeight.bold)),
             onPressed: _isPublishingBanner ? null : _publishBannerToSupabase,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         ..._manager.banners
             .map((b) => Card(
                   child: ListTile(
@@ -5625,7 +6325,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                     title: Text(b.title,
                         style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(
-                        'القسم: ${b.position == "top" ? "العلوي" : "السفلي"} | ${b.subtitle}'),
+                        'القسم: ${b.position == "top" ? "العلوي" : "السفلي"}'),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () async {
@@ -5652,7 +6352,7 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('قائمة المستخدمين والتحكم بالحظر والتجميد:',
+        const Text('قائمة المستخدمين والصلاحيات:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 10),
         ..._manager.registeredUsers.asMap().entries.map((entry) {
@@ -5677,28 +6377,46 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                       decoration:
                           user.isBanned ? TextDecoration.lineThrough : null)),
               subtitle: Text(
-                  '${user.email.isNotEmpty ? user.email : user.phone} | الدور: ${user.role}'),
+                  '${user.email.isNotEmpty ? user.email : user.phone} | ${user.role}'),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
                     icon: Icon(user.isFrozen ? Icons.wb_sunny : Icons.ac_unit,
                         color: Colors.orange),
-                    tooltip: user.isFrozen ? 'إلغاء التجميد' : 'تجميد الحساب',
-                    onPressed: () {
-                      setState(() => _manager.registeredUsers[idx] =
-                          user.copyWith(isFrozen: !user.isFrozen));
+                    onPressed: () async {
+                      final updatedUser =
+                          user.copyWith(isFrozen: !user.isFrozen);
+                      setState(
+                          () => _manager.registeredUsers[idx] = updatedUser);
                       _manager.notifyListeners();
+                      try {
+                        await Supabase.instance.client
+                            .from('users_profiles')
+                            .update({'is_frozen': updatedUser.isFrozen}).eq(
+                                'id', user.id);
+                      } catch (e) {
+                        debugPrint('User status update error: $e');
+                      }
                     },
                   ),
                   IconButton(
                     icon: Icon(user.isBanned ? Icons.check_circle : Icons.block,
                         color: Colors.red),
-                    tooltip: user.isBanned ? 'إلغاء الحظر' : 'حظر المستخدم',
-                    onPressed: () {
-                      setState(() => _manager.registeredUsers[idx] =
-                          user.copyWith(isBanned: !user.isBanned));
+                    onPressed: () async {
+                      final updatedUser =
+                          user.copyWith(isBanned: !user.isBanned);
+                      setState(
+                          () => _manager.registeredUsers[idx] = updatedUser);
                       _manager.notifyListeners();
+                      try {
+                        await Supabase.instance.client
+                            .from('users_profiles')
+                            .update({'is_banned': updatedUser.isBanned}).eq(
+                                'id', user.id);
+                      } catch (e) {
+                        debugPrint('User ban update error: $e');
+                      }
                     },
                   ),
                 ],
