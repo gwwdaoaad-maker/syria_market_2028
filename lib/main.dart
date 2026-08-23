@@ -591,7 +591,7 @@ class AdminPermissions {
   }
 }
 
-/// نموذج المشرف والمستخدم
+/// نموذج المشرف والمستخدم (AdminUser)
 class AdminUser {
   final String id;
   final String name;
@@ -614,6 +614,30 @@ class AdminUser {
     this.isFrozen = false,
     required this.permissions,
   });
+
+  AdminUser copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? phone,
+    String? role,
+    String? planId,
+    bool? isBanned,
+    bool? isFrozen,
+    AdminPermissions? permissions,
+  }) {
+    return AdminUser(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      role: role ?? this.role,
+      planId: planId ?? this.planId,
+      isBanned: isBanned ?? this.isBanned,
+      isFrozen: isFrozen ?? this.isFrozen,
+      permissions: permissions ?? this.permissions,
+    );
+  }
 
   factory AdminUser.fromMap(Map<String, dynamic> map) {
     return AdminUser(
