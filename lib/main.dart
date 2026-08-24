@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';
 
 // ==============================================================================
 // 1. الثوابت والإعدادات العامة لمنصة سوق سوريا الشامل 2028
@@ -709,7 +708,7 @@ class AppStateManager extends ChangeNotifier {
       ),
     ];
 
-    // البنرات الافتراضية الأولية (قابلة للتوسع حتى 12+)
+    // البنرات الافتراضية الأولية (تدعم التوسع حتى 12+)
     banners = [
       BannerItem(
         id: 'b1',
@@ -1012,7 +1011,7 @@ class _VoiceInputDialogState extends State<VoiceInputDialog> {
 }
 
 // ==============================================================================
-// 6. كلاس التطبيق الجذري المصحح تماماً (CardTheme) (SyriaMarket2028App)
+// 6. كلاس التطبيق الجذري المصحح تماماً (CardThemeData) (SyriaMarket2028App)
 // ==============================================================================
 class SyriaMarket2028App extends StatefulWidget {
   const SyriaMarket2028App({Key? key}) : super(key: key);
@@ -1068,7 +1067,7 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
           background: _manager.scaffoldBgColor,
         ),
         scaffoldBackgroundColor: _manager.scaffoldBgColor,
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 1.5,
           shape:
@@ -1092,7 +1091,7 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
           background: const Color(0xFF0F172A),
         ),
         scaffoldBackgroundColor: const Color(0xFF0F172A),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: const Color(0xFF1E293B),
           elevation: 2,
           shape:
@@ -4785,7 +4784,10 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                         border: Border.all(color: _manager.primaryColor),
                       ),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: Center(
+                          child: Icon(Icons.add_photo_alternate,
+                              color: _manager.primaryColor, size: 28),
+                        ).alignment,
                         children: [
                           Icon(Icons.add_photo_alternate,
                               color: _manager.primaryColor, size: 28),
@@ -5142,9 +5144,18 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
   }
 
   void _shareAd() {
-    final text =
-        'تفقد هذا العرض المميز على تطبيق "${_manager.appTitle}":\n\n${_ad.title}\nالسعر: ${_ad.priceUsd != null ? "\$${_ad.priceUsd}" : "${_ad.priceSyp} ل.س"}\nالموقع: ${_ad.governorate} - ${_ad.neighborhood}';
-    Share.share(text);
+    final text = 'تفقد هذا العرض المميز على تطبيق "${_manager.appTitle}":\n\n'
+        '${_ad.title}\n'
+        'السعر: ${_ad.priceUsd != null ? "\$${_ad.priceUsd}" : "${_ad.priceSyp} ل.س"}\n'
+        'الموقع: ${_ad.governorate} - ${_ad.neighborhood}';
+
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('📋 تم نسخ تفاصيل الإعلان لمشاركتها مع أصدقائك!'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -5411,8 +5422,10 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                    color: Colors.black60,
-                    borderRadius: BorderRadius.circular(12)),
+                  color:
+                      Colors.black.withOpacity(0.6), // تم تصحيح Colors.black60
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Text('${_currentImageIndex + 1} / ${images.length}',
                     style: const TextStyle(
                         color: Colors.white,
