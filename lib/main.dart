@@ -11,9 +11,9 @@ import 'package:url_launcher/url_launcher.dart';
 // ==============================================================================
 // 1. الثوابت والإعدادات العامة لمنصة سوق سوريا الشامل 2028
 // ==============================================================================
-const String kSupabaseUrl = 'https://ucneyuuutambmf25bqu7bc.supabase.co';
+const String kSupabaseUrl = 'https://zbjjkigkxbpktpmpcdqc.supabase.co';
 const String kSupabaseAnonKey =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjbmV5dXV1dGFtYm1mMjVicXU3YmMiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTczOTQ0NDcxMywiZXhwIjoyMDU1MDIwNzEzfQ.sample_anon_key_syria_market_2028';
+    'sb_publishable_ZZBI_vTK7kslyf02g3Zo0Q_Sg4Qi'; // ضع المفتاح الكامل بعد نسخه من لوحة سوبابيز
 
 // معلومات التواصل مع الإدارة والمالك
 const String kAppOwnerEmail = 'aoaadabdo@gmail.com';
@@ -24,6 +24,9 @@ const String kAppOwnerWhatsApp = '0933000000';
 const String kStorageBucketAds = 'ad-images';
 const String kStorageBucketBanners = 'banner-images';
 const String kStorageBucketFeedbacks = 'feedback-images';
+
+// ==============================================================================
+// 1. الثوابت والإعدادات العامة لمنصة سوق سوريا الشام
 
 // ==============================================================================
 // 2. كلاسات المساعدة وأدوات تنسيق الأرقام والهواتف
