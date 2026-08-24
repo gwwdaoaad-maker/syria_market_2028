@@ -19,11 +19,11 @@ const List<String> kSuperAdminEmails = [
 ];
 
 const String kAppOwnerWhatsApp =
-    '0933000001'; // رقم واتساب صاحب التطبيق للاقتراحات المباشرة
+    '0933000001'; // رقم واتساب صاحب التطبيق للاقتراحات والتواصل المباشر
+const String kAppOwnerPhone = '0933000001'; // رقم هاتف مكتب الإدارة المباشر
 
 const String kStorageBucketAds = 'ad_images';
 const String kStorageBucketBanners = 'banner_images';
-const String kStorageBucketReceipts = 'receipt_images';
 const String kStorageBucketFeedbacks = 'feedback_images';
 
 // ==============================================================================
@@ -80,7 +80,7 @@ void main() async {
 }
 
 // ==============================================================================
-// 3. المساعدات الشاملة (معالجة أرقام الواتساب، المايك والصوت)
+// 3. المساعدات الشاملة (معالجة الأرقام، المايك الصوتي)
 // ==============================================================================
 
 /// تنظيف وتجهيز رقم الهاتف والواتساب بدقة
@@ -108,10 +108,11 @@ class PhoneHelper {
   }
 }
 
-/// نافذة محاكاة التسجيل الصوتي والإملاء التلقائي (Speech-to-Text Dialog)
+/// نافذة الإملاء والتسجيل الصوتي الذكي (Voice Input Dialog)
 class VoiceInputDialog extends StatefulWidget {
   final String title;
-  const VoiceInputDialog({Key? key, this.title = 'تحدث الآن، جاري الاستماع...'})
+  const VoiceInputDialog(
+      {Key? key, this.title = 'تحدث الآن، جاري الاستماع صوتياً...'})
       : super(key: key);
 
   @override
@@ -132,8 +133,7 @@ class _VoiceInputDialogState extends State<VoiceInputDialog> {
     Timer(const Duration(milliseconds: 1400), () {
       if (mounted && _isListening) {
         setState(() {
-          _voiceTextController.text =
-              'اقترح إضافة قسم خاص بالسيارات الكهربائية ومحطات الشحن';
+          _voiceTextController.text = 'سيارة كورية حديثة للبيع في دمشق';
         });
       }
     });
@@ -163,7 +163,7 @@ class _VoiceInputDialogState extends State<VoiceInputDialog> {
           Expanded(
               child: Text(widget.title,
                   style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.bold))),
+                      fontSize: 14, fontWeight: FontWeight.bold))),
         ],
       ),
       content: Column(
@@ -179,7 +179,7 @@ class _VoiceInputDialogState extends State<VoiceInputDialog> {
               controller: _voiceTextController,
               maxLines: 3,
               decoration: const InputDecoration(
-                hintText: 'النص المنطوق سيتحول لكتابة هنا...',
+                hintText: 'تحدث الآن، وسيكتب كلامك باللغة العربية هنا...',
                 border: InputBorder.none,
               ),
             ),
@@ -189,14 +189,14 @@ class _VoiceInputDialogState extends State<VoiceInputDialog> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 12,
-                height: 12,
+                width: 10,
+                height: 10,
                 decoration: const BoxDecoration(
                     color: Colors.green, shape: BoxShape.circle),
               ),
               const SizedBox(width: 6),
-              const Text('المايكروفون يستمع بدقة...',
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text('المايكروفون جاهز ويستمع لنطقك...',
+                  style: TextStyle(fontSize: 11, color: Colors.grey)),
             ],
           ),
         ],
@@ -222,7 +222,7 @@ class _VoiceInputDialogState extends State<VoiceInputDialog> {
 }
 
 // ==============================================================================
-// 4. نماذج البيانات السحابية المتكاملة مع نموذج الاقتراحات (Data Models)
+// 4. نماذج البيانات السحابية (Data Models)
 // ==============================================================================
 
 /// نموذج الاقتراحات والملاحظات المباشرة لصاحب التطبيق
@@ -230,9 +230,8 @@ class AppFeedbackItem {
   final String id;
   final String userId;
   final String userName;
-  final String userContact; // هاتف أو إيميل
-  final String
-      type; // 'فكرة وميزة جديدة 💡', 'ملاحظة على السرعة/التصميم ⚡', 'مشكلة تقنية 🛠️', 'طلب قسم جديد 📁', 'شكر وتقييم ⭐'
+  final String userContact;
+  final String type;
   final String content;
   final String? screenshotUrl;
   final DateTime createdAt;
@@ -306,7 +305,7 @@ class AdItem {
   final bool isSold;
   final DateTime? soldAt;
   final bool allowComments;
-  final String status; // 'approved', 'pending', 'rejected'
+  final String status;
   final int viewsCount;
   final double sellerRating;
   final int sellerReviewsCount;
@@ -485,7 +484,7 @@ class AdItem {
   }
 }
 
-/// ميزة الباقة
+/// باقات الاشتراك
 class PlanFeature {
   String text;
   IconData icon;
@@ -495,7 +494,6 @@ class PlanFeature {
   Map<String, dynamic> toMap() => {'text': text, 'icon_code': icon.codePoint};
 }
 
-/// باقة الاشتراك
 class PlanConfig {
   final String id;
   final String name;
@@ -574,7 +572,7 @@ class PlanConfig {
   }
 }
 
-/// نموذج القسم والأفرع القابل للتعديل الفوري
+/// نموذج الأقسام
 class CategoryModel {
   final String id;
   String name;
@@ -643,7 +641,7 @@ class CategoryModel {
   }
 }
 
-/// نموذج البنر الإعلاني
+/// نموذج بطاقة البنر المتطورة (تدعم حتى 12+ بطاقة مع الصور، العناوين، والواتساب)
 class BannerItem {
   final String id;
   final String title;
@@ -653,7 +651,6 @@ class BannerItem {
   final String phone;
   final String whatsapp;
   final String telegram;
-  final String position; // 'top' أو 'bottom'
 
   BannerItem({
     required this.id,
@@ -664,7 +661,6 @@ class BannerItem {
     this.phone = '',
     this.whatsapp = '',
     this.telegram = '',
-    this.position = 'top',
   });
 
   BannerItem copyWith({
@@ -676,7 +672,6 @@ class BannerItem {
     String? phone,
     String? whatsapp,
     String? telegram,
-    String? position,
   }) {
     return BannerItem(
       id: id ?? this.id,
@@ -687,7 +682,6 @@ class BannerItem {
       phone: phone ?? this.phone,
       whatsapp: whatsapp ?? this.whatsapp,
       telegram: telegram ?? this.telegram,
-      position: position ?? this.position,
     );
   }
 
@@ -701,7 +695,6 @@ class BannerItem {
       'phone': phone,
       'whatsapp': whatsapp,
       'telegram': telegram,
-      'position': position,
     };
   }
 
@@ -715,12 +708,11 @@ class BannerItem {
       phone: map['phone']?.toString() ?? '',
       whatsapp: map['whatsapp']?.toString() ?? '',
       telegram: map['telegram']?.toString() ?? '',
-      position: map['position']?.toString() ?? 'top',
     );
   }
 }
 
-/// نموذج بلاغات الإعلانات
+/// نموذج البلاغات
 class AdReportItem {
   final String id;
   final String adId;
@@ -764,7 +756,7 @@ class AdReportItem {
       };
 }
 
-/// نموذج الصلاحيات التفصيلية للمشرفين
+/// الصلاحيات التفصيلية
 class AdminPermissions {
   bool canApproveAds;
   bool canDeleteAds;
@@ -808,13 +800,13 @@ class AdminPermissions {
   }
 }
 
-/// نموذج المستخدم والمشرف
+/// المستخدم والمشرف
 class AdminUser {
   final String id;
   final String name;
   final String email;
   final String phone;
-  final String role; // 'super_admin', 'moderator', 'user'
+  final String role;
   final String planId;
   final bool isBanned;
   final bool isFrozen;
@@ -857,47 +849,6 @@ class AdminUser {
         'is_banned': isBanned,
         'is_frozen': isFrozen,
         'permissions': permissions.toMap(),
-      };
-}
-
-/// نموذج طرق الدفع والتواصل
-class PaymentMethod {
-  final String id;
-  final String title;
-  final String accountNumber;
-  final String recipientName;
-  final String notes;
-  final IconData icon;
-
-  PaymentMethod({
-    required this.id,
-    required this.title,
-    required this.accountNumber,
-    required this.recipientName,
-    required this.notes,
-    required this.icon,
-  });
-
-  factory PaymentMethod.fromMap(Map<String, dynamic> map) {
-    return PaymentMethod(
-      id: map['id']?.toString() ?? '',
-      title: map['title']?.toString() ?? '',
-      accountNumber: map['account_number']?.toString() ?? '',
-      recipientName: map['recipient_name']?.toString() ?? '',
-      notes: map['notes']?.toString() ?? '',
-      icon: IconData(
-          (map['icon_code'] as num?)?.toInt() ?? Icons.payment.codePoint,
-          fontFamily: 'MaterialIcons'),
-    );
-  }
-
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'title': title,
-        'account_number': accountNumber,
-        'recipient_name': recipientName,
-        'notes': notes,
-        'icon_code': icon.codePoint,
       };
 }
 
@@ -982,12 +933,19 @@ class AppStateManager extends ChangeNotifier {
   bool isVoiceTypingEnabled = true;
   bool isTextToSpeechEnabled = true;
 
-  // الثيم والألوان (متناغمة تماماً للوضع النهاري والليلي)
+  // 🎨 التحكم الكامل بألوان التطبيق ونصوصه
   Color primaryColor = const Color(0xFF0F5132);
   Color secondaryColor = const Color(0xFFD4AF37);
   Color appBarColor = const Color(0xFF0F5132);
   Color buttonColor = const Color(0xFF0F5132);
   Color scaffoldBgColor = const Color(0xFFF8FAFC);
+
+  // 🔤 ألوان النصوص المخصصة لكامل التطبيق (قابلة للتعديل من لوحة المشرفين)
+  Color titleTextColor = const Color(0xFF0F172A);
+  Color bodyTextColor = const Color(0xFF334155);
+  Color priceUsdColor = const Color(0xFF0F5132);
+  Color priceSypColor = const Color(0xFF475569);
+  Color locationTextColor = const Color(0xFF64748B);
 
   // شريط الأخبار
   double tickerSpeed = 1.2;
@@ -996,9 +954,8 @@ class AppStateManager extends ChangeNotifier {
   double tickerFontSize = 12.0;
   IconData tickerIcon = Icons.campaign;
 
-  // توقيت البنرات
-  int topBannerIntervalSeconds = 4;
-  int bottomBannerIntervalSeconds = 5;
+  // ⏱️ التحكم بالوقت الدوري لتبديل البنر (ثوانٍ)
+  int bannerIntervalSeconds = 3;
 
   // حالة المستخدم والمشرف
   bool isLoggedIn = false;
@@ -1007,7 +964,7 @@ class AppStateManager extends ChangeNotifier {
   String currentUserEmail = '';
   String currentUserPhone = '';
   String currentUserPlanId = 'plan_free';
-  String currentUserRole = 'user'; // 'super_admin', 'moderator', 'user'
+  String currentUserRole = 'user';
   AdminPermissions currentUserPermissions = AdminPermissions();
 
   bool get isSuperAdmin {
@@ -1026,12 +983,10 @@ class AppStateManager extends ChangeNotifier {
   List<String> newsTicker = [];
   List<PlanConfig> plans = [];
   List<CategoryModel> categories = [];
-  List<PaymentMethod> paymentMethods = [];
   List<AdminUser> registeredUsers = [];
   List<AdReportItem> reports = [];
-  List<AppFeedbackItem> feedbacks = []; // قائمة الملاحظات والاقتراحات الواردة
+  List<AppFeedbackItem> feedbacks = [];
 
-  // قائمة الأيقونات الملونة للأقسام
   final List<Map<String, dynamic>> availableIconsPool = [
     {
       'name': 'سيارات',
@@ -1090,7 +1045,6 @@ class AppStateManager extends ChangeNotifier {
     fetchCategories();
     fetchPlans();
     fetchNewsTicker();
-    fetchPaymentMethods();
     fetchReports();
     fetchFeedbacks();
     fetchUsers();
@@ -1100,9 +1054,44 @@ class AppStateManager extends ChangeNotifier {
   void _populateDefaults() {
     _populateDefaultCategories();
     _populateDefaultPlans();
-    _populateDefaultPaymentMethods();
     _populateDefaultNewsTicker();
     _populateDefaultModerators();
+    _populateDefaultBanners();
+  }
+
+  void _populateDefaultBanners() {
+    banners = [
+      BannerItem(
+        id: 'b-1',
+        title: 'سيارات حديثة وكلاسيكية بالتقسيط المريح',
+        subtitle: 'تواصل مع أفضل المعارض المعتمدة فوراً',
+        imageUrl:
+            'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600',
+        phone: '0933000001',
+        whatsapp: '0933000001',
+        targetUrl: '',
+      ),
+      BannerItem(
+        id: 'b-2',
+        title: 'عقارات وشقق دمشق وريفها بأسعار مناسبة',
+        subtitle: 'طابو أخضر 2400 سهم وفراغ فوري مع البائع',
+        imageUrl:
+            'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600',
+        phone: '0944000002',
+        whatsapp: '0944000002',
+        targetUrl: '',
+      ),
+      BannerItem(
+        id: 'b-3',
+        title: 'منظومات طاقة شمسية وبطاريات ليثيوم كفالة 5 سنوات',
+        subtitle: 'أقوى العروض وبأفضل الأسعار المنافسة',
+        imageUrl:
+            'https://images.unsplash.com/photo-1508873696983-2df5293cb32b?w=600',
+        phone: '0955000003',
+        whatsapp: '0955000003',
+        targetUrl: '',
+      ),
+    ];
   }
 
   void setSessionUser(
@@ -1179,6 +1168,10 @@ class AppStateManager extends ChangeNotifier {
         isMaintenanceMode = res['is_maintenance'] ?? false;
         maintenanceMessage = res['maintenance_message'] ?? maintenanceMessage;
         disclaimerText = res['disclaimer_text'] ?? disclaimerText;
+        if (res['banner_interval_seconds'] != null) {
+          bannerIntervalSeconds =
+              (res['banner_interval_seconds'] as num).toInt();
+        }
         if (res['primary_color'] != null)
           primaryColor = Color(res['primary_color']);
         if (res['secondary_color'] != null)
@@ -1189,6 +1182,16 @@ class AppStateManager extends ChangeNotifier {
           buttonColor = Color(res['button_color']);
         if (res['scaffold_bg_color'] != null)
           scaffoldBgColor = Color(res['scaffold_bg_color']);
+        if (res['title_text_color'] != null)
+          titleTextColor = Color(res['title_text_color']);
+        if (res['body_text_color'] != null)
+          bodyTextColor = Color(res['body_text_color']);
+        if (res['price_usd_color'] != null)
+          priceUsdColor = Color(res['price_usd_color']);
+        if (res['price_syp_color'] != null)
+          priceSypColor = Color(res['price_syp_color']);
+        if (res['location_text_color'] != null)
+          locationTextColor = Color(res['location_text_color']);
         notifyListeners();
       }
     } catch (e) {
@@ -1220,7 +1223,7 @@ class AppStateManager extends ChangeNotifier {
           .from('banners')
           .select()
           .timeout(const Duration(seconds: 6));
-      if (response is List) {
+      if (response is List && response.isNotEmpty) {
         banners = response.map((row) => BannerItem.fromMap(row)).toList();
         notifyListeners();
       }
@@ -1359,7 +1362,7 @@ class AppStateManager extends ChangeNotifier {
         name: 'الباقة الذهبية VIP 👑',
         priceSyp: 150000,
         durationText: 'شهرياً',
-        statusConditionText: 'متاحة للتفعيل الفوري عبر سيريتل/MTN كاش',
+        statusConditionText: 'متاحة للتفعيل الفوري',
         maxAdsPerMonth: 9999,
         maxImagesPerAd: 10,
         customFeatures: [
@@ -1399,51 +1402,6 @@ class AppStateManager extends ChangeNotifier {
       '🔥 مرحباً بكم في سوق سوريا الشامل 2028 - المنصة الرائدة للبيع والشراء والمزادات الحرة في كافة المحافظات',
       '👑 باقة VIP الذهبية متاحة الآن بخصم 50% مع ميزات نشر وتفاوض غير محدودة',
       '💡 صوتك مسموع! أرسل لنا اقتراحاتك وأفكارك لتطوير المنصة مباشرةً من القائمة الجانبية',
-    ];
-  }
-
-  Future<void> fetchPaymentMethods() async {
-    if (_client == null) return;
-    try {
-      final response = await _client!
-          .from('payment_methods')
-          .select()
-          .timeout(const Duration(seconds: 6));
-      if ((response as List).isNotEmpty) {
-        paymentMethods =
-            response.map((row) => PaymentMethod.fromMap(row)).toList();
-        notifyListeners();
-      }
-    } catch (_) {}
-  }
-
-  void _populateDefaultPaymentMethods() {
-    paymentMethods = [
-      PaymentMethod(
-        id: 'syriatel',
-        title: 'سيريتل كاش (Syriatel Cash)',
-        accountNumber: '0933112233',
-        recipientName: 'سوق سوريا الشامل 2028',
-        notes:
-            'يرجى تحويل المبلغ وتصوير إشعار العملية وإرفاقه بالأسفل لتفعيل الباقة فوراً.',
-        icon: Icons.phone_android,
-      ),
-      PaymentMethod(
-        id: 'mtn',
-        title: 'MTN كاش (MTN Cash)',
-        accountNumber: '0944112233',
-        recipientName: 'سوق سوريا الشامل 2028',
-        notes: 'تحويل فوري مباشر لحساب الكاش مع حفظ صورة العملية.',
-        icon: Icons.account_balance_wallet,
-      ),
-      PaymentMethod(
-        id: 'sham_bank',
-        title: 'حساب بنك الشام / بنك البركة',
-        accountNumber: 'SY-1002938472910',
-        recipientName: 'شركة سوق سوريا للاستثمار',
-        notes: 'إيداع بنكي مباشر عبر فروع البنك في كافة المحافظات.',
-        icon: Icons.account_balance,
-      ),
     ];
   }
 
@@ -1518,12 +1476,24 @@ class AppStateManager extends ChangeNotifier {
     bool? maintenance,
     String? maintMsg,
     String? disclaimer,
+    int? bannerSeconds,
+    Color? titleColor,
+    Color? bodyColor,
+    Color? priceUsdCol,
+    Color? priceSypCol,
+    Color? locationColor,
   }) async {
     if (title != null) appTitle = title;
     if (subtitle != null) appSubtitle = subtitle;
     if (maintenance != null) isMaintenanceMode = maintenance;
     if (maintMsg != null) maintenanceMessage = maintMsg;
     if (disclaimer != null) disclaimerText = disclaimer;
+    if (bannerSeconds != null) bannerIntervalSeconds = bannerSeconds;
+    if (titleColor != null) titleTextColor = titleColor;
+    if (bodyColor != null) bodyTextColor = bodyColor;
+    if (priceUsdCol != null) priceUsdColor = priceUsdCol;
+    if (priceSypCol != null) priceSypColor = priceSypCol;
+    if (locationColor != null) locationTextColor = locationColor;
     notifyListeners();
 
     if (_client != null) {
@@ -1535,39 +1505,15 @@ class AppStateManager extends ChangeNotifier {
           'is_maintenance': isMaintenanceMode,
           'maintenance_message': maintenanceMessage,
           'disclaimer_text': disclaimerText,
+          'banner_interval_seconds': bannerIntervalSeconds,
+          'title_text_color': titleTextColor.value,
+          'body_text_color': bodyTextColor.value,
+          'price_usd_color': priceUsdColor.value,
+          'price_syp_color': priceSypColor.value,
+          'location_text_color': locationTextColor.value,
         }).timeout(const Duration(seconds: 8));
       } catch (e) {
         debugPrint('Error updating app config: $e');
-      }
-    }
-  }
-
-  Future<void> updateAppColors({
-    Color? primary,
-    Color? secondary,
-    Color? appBar,
-    Color? button,
-    Color? scaffoldBg,
-  }) async {
-    if (primary != null) primaryColor = primary;
-    if (secondary != null) secondaryColor = secondary;
-    if (appBar != null) appBarColor = appBar;
-    if (button != null) buttonColor = button;
-    if (scaffoldBg != null) scaffoldBgColor = scaffoldBg;
-    notifyListeners();
-
-    if (_client != null) {
-      try {
-        await _client!.from('app_settings').upsert({
-          'id': 1,
-          'primary_color': primaryColor.value,
-          'secondary_color': secondaryColor.value,
-          'app_bar_color': appBarColor.value,
-          'button_color': buttonColor.value,
-          'scaffold_bg_color': scaffoldBgColor.value,
-        }).timeout(const Duration(seconds: 8));
-      } catch (e) {
-        debugPrint('Error updating app colors: $e');
       }
     }
   }
@@ -1690,7 +1636,6 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
           background: _manager.scaffoldBgColor,
         ),
         scaffoldBackgroundColor: _manager.scaffoldBgColor,
-        // ✅ تم تصحيح CardThemeData لتتوافق 100% مع إصدارات Flutter الحديثة
         cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 1.5,
@@ -1715,7 +1660,6 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
           background: const Color(0xFF0F172A),
         ),
         scaffoldBackgroundColor: const Color(0xFF0F172A),
-        // ✅ تم تصحيح CardThemeData في الوضع الليلي
         cardTheme: CardThemeData(
           color: const Color(0xFF1E293B),
           elevation: 2,
@@ -2174,7 +2118,7 @@ class _AppFeedbackScreenState extends State<AppFeedbackScreen> {
 }
 
 // ==============================================================================
-// 8. الشاشة الرئيسية الكبرى والشبكة الثنائية الحديثة المصغرة (MainDashboardScreen)
+// 8. الشاشة الرئيسية الكبرى والشبكة الثنائية الحديثة (MainDashboardScreen)
 // ==============================================================================
 class MainDashboardScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -2231,13 +2175,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   Timer? _tickerTimer;
   bool _isTickerPaused = false;
 
-  final PageController _topBannerController = PageController();
-  int _currentTopBannerPage = 0;
-  Timer? _topBannerTimer;
-
-  final PageController _bottomBannerController = PageController();
-  int _currentBottomBannerPage = 0;
-  Timer? _bottomBannerTimer;
+  // 🖼️ سلايدر البنرات المتطور (يدعم حتى 12+ صورة مع تكرار دوري مستمر)
+  final PageController _bannerCarouselController = PageController();
+  int _currentBannerIndex = 0;
+  Timer? _bannerAutoScrollTimer;
+  bool _isBannerUserInteracting = false;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -2249,7 +2191,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     _fetchUserFavorites();
     _fetchUserChats();
     _startTickerAnimation();
-    _startBannerCarousels();
+    _startBannerCarouselTimer();
   }
 
   @override
@@ -2257,10 +2199,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     _manager.removeListener(_onStateChange);
     _tickerTimer?.cancel();
     _tickerScrollController.dispose();
-    _topBannerTimer?.cancel();
-    _topBannerController.dispose();
-    _bottomBannerTimer?.cancel();
-    _bottomBannerController.dispose();
+    _bannerAutoScrollTimer?.cancel();
+    _bannerCarouselController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -2284,37 +2224,25 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     });
   }
 
-  void _startBannerCarousels() {
-    _topBannerTimer?.cancel();
-    _topBannerTimer = Timer.periodic(
-        Duration(seconds: _manager.topBannerIntervalSeconds), (timer) {
-      final topBanners =
-          _manager.banners.where((b) => b.position == 'top').toList();
-      if (mounted && topBanners.length > 1 && _topBannerController.hasClients) {
-        _currentTopBannerPage = (_currentTopBannerPage + 1) % topBanners.length;
-        _topBannerController.animateToPage(
-          _currentTopBannerPage,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
+  /// 🔄 تشغيل السلايدر الدوري اللانهائي بسرعة الثواني المحددة من الإعدادات
+  void _startBannerCarouselTimer() {
+    _bannerAutoScrollTimer?.cancel();
+    final interval =
+        _manager.bannerIntervalSeconds > 0 ? _manager.bannerIntervalSeconds : 3;
 
-    _bottomBannerTimer?.cancel();
-    _bottomBannerTimer = Timer.periodic(
-        Duration(seconds: _manager.bottomBannerIntervalSeconds), (timer) {
-      final bottomBanners =
-          _manager.banners.where((b) => b.position == 'bottom').toList();
+    _bannerAutoScrollTimer =
+        Timer.periodic(Duration(seconds: interval), (timer) {
       if (mounted &&
-          bottomBanners.length > 1 &&
-          _bottomBannerController.hasClients) {
-        _currentBottomBannerPage =
-            (_currentBottomBannerPage + 1) % bottomBanners.length;
-        _bottomBannerController.animateToPage(
-          _currentBottomBannerPage,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOut,
+          !_isBannerUserInteracting &&
+          _manager.banners.length > 1 &&
+          _bannerCarouselController.hasClients) {
+        final nextIndex = (_currentBannerIndex + 1) % _manager.banners.length;
+        _bannerCarouselController.animateToPage(
+          nextIndex,
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeInOutCubic,
         );
+        setState(() => _currentBannerIndex = nextIndex);
       }
     });
   }
@@ -2409,7 +2337,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           .select()
           .timeout(const Duration(seconds: 8));
 
-      if (bannerRes is List) {
+      if (bannerRes is List && (bannerRes).isNotEmpty) {
         _manager.banners = bannerRes
             .map((map) => BannerItem.fromMap(map as Map<String, dynamic>))
             .toList();
@@ -2459,6 +2387,111 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     }
     onAuthenticated();
     return true;
+  }
+
+  /// 💬 نافذة التواصل المباشر مع الإدارة السريعة
+  void _showContactAdminDialog() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: _manager.secondaryColor,
+                    child: Icon(Icons.headset_mic,
+                        color: _manager.primaryColor, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('التواصل المباشر مع إدارة التطبيق',
+                          style: TextStyle(
+                              color: _manager.primaryColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                      const Text('نحن هنا لخدمتكم ومساعدتكم على مدار الساعة',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                tileColor: const Color(0xFF25D366).withOpacity(0.12),
+                leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
+                title: const Text('محادثة واتساب فورية مع الإدارة',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text(
+                    'رد سريع على الاستفسارات وحجز الإعلانات المميزة'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final clean =
+                      PhoneHelper.formatForWhatsapp(kAppOwnerWhatsApp);
+                  final msg = Uri.encodeComponent(
+                      'مرحباً إدارة سوق سوريا الشامل 2028، لدي استفسار:');
+                  final uri = Uri.parse('https://wa.me/$clean?text=$msg');
+                  try {
+                    if (await canLaunchUrl(uri))
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                  } catch (_) {}
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                tileColor: Colors.blue.withOpacity(0.1),
+                leading: const Icon(Icons.phone, color: Colors.blue),
+                title: const Text('اتصال هاتفي مباشر بالإدارة',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: Text('رقم الهاتف: $kAppOwnerPhone'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final uri = Uri.parse('tel:$kAppOwnerPhone');
+                  try {
+                    if (await canLaunchUrl(uri)) await launchUrl(uri);
+                  } catch (_) {}
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                tileColor: _manager.secondaryColor.withOpacity(0.15),
+                leading: Icon(Icons.lightbulb, color: _manager.secondaryColor),
+                title: const Text('صوتك مسموع 💡 (صندوق الاقتراحات)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('إرسال فكرة أو شكوى مع إرفاق لقطة شاشة'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (c) => const AppFeedbackScreen()));
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showAdvancedFilterSheet() {
@@ -2674,6 +2707,21 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           ],
         ),
         actions: [
+          // 💬 زر التواصل المباشر مع الإدارة في أعلى الصفحة
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: _manager.secondaryColor.withOpacity(0.3),
+                shape: BoxShape.circle,
+                border: Border.all(color: _manager.secondaryColor, width: 1.2),
+              ),
+              child: Icon(Icons.headset_mic,
+                  color: _manager.secondaryColor, size: 18),
+            ),
+            tooltip: 'تواصل مع إدارة التطبيق',
+            onPressed: _showContactAdminDialog,
+          ),
           DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedGovernorate,
@@ -2683,7 +2731,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                   color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.bold),
-              // ✅ تم تصحيح القائمة وإزالة الرمز الخاطئ >
               items: _governorates.map((gov) {
                 return DropdownMenuItem<String>(
                   value: gov,
@@ -2842,7 +2889,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     return Column(
       children: [
         _buildCustomNewsTickerWidget(),
-        _buildBannerCarouselBox('top', _topBannerController),
+        _buildMultiCardHeroBannerCarousel(), // سلايدر البنرات المتطور (يدعم حتى 12+ بطاقة)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           child: Row(
@@ -2903,9 +2950,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             children: [
               Row(
                 children: [
-                  const Text('أحدث إعلانات السوق',
-                      style:
-                          TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  Text('أحدث إعلانات السوق',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: _manager.titleTextColor)),
                   const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -2942,70 +2991,39 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     ? ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: [
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 60),
                           Center(
                             child: Column(
                               children: [
-                                Icon(Icons.storefront_outlined,
-                                    size: 60, color: Colors.grey.shade400),
+                                Icon(Icons.search_off_rounded,
+                                    size: 55, color: Colors.grey.shade400),
                                 const SizedBox(height: 10),
                                 const Text(
                                     'لا توجد إعلانات مطابقة لخيارات البحث أو الفلترة',
                                     style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                        fontSize: 13,
                                         color: Colors.grey)),
-                                const SizedBox(height: 8),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: _manager.buttonColor),
-                                  onPressed: () =>
-                                      _requireAuth(() => _openAddAdScreen()),
-                                  icon: const Icon(Icons.add_circle,
-                                      color: Colors.white, size: 16),
-                                  label: const Text(
-                                      'كن أول من ينشر إعلاناً الآن ✨',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13)),
-                                ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          _buildBannerCarouselBox(
-                              'bottom', _bottomBannerController),
                         ],
                       )
-                    : CustomScrollView(
-                        slivers: [
-                          SliverPadding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            sliver: SliverGrid(
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 0.72,
-                                crossAxisSpacing: 6,
-                                mainAxisSpacing: 6,
-                              ),
-                              delegate: SliverChildBuilderDelegate(
-                                (ctx, index) {
-                                  final ad = filteredAds[index];
-                                  return _buildCompactGridAdCard(ad);
-                                },
-                                childCount: filteredAds.length,
-                              ),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: _buildBannerCarouselBox(
-                                'bottom', _bottomBannerController),
-                          ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 20)),
-                        ],
+                    : GridView.builder(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.72,
+                          crossAxisSpacing: 6,
+                          mainAxisSpacing: 6,
+                        ),
+                        itemCount: filteredAds.length,
+                        itemBuilder: (ctx, index) {
+                          final ad = filteredAds[index];
+                          return _buildCompactGridAdCard(ad);
+                        },
                       ),
           ),
         ),
@@ -3065,182 +3083,191 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-  Widget _buildBannerCarouselBox(String position, PageController controller) {
-    final positionBanners =
-        _manager.banners.where((b) => b.position == position).toList();
+  /// 🌟 سلايدر البنرات المتطور (يدعم حتى 12+ بطاقة مع تبديل دوري مستمر بالثواني المحددة)
+  Widget _buildMultiCardHeroBannerCarousel() {
+    final bannersList = _manager.banners;
+    if (bannersList.isEmpty) return const SizedBox.shrink();
 
     return Container(
-      height: 110,
+      height: 140,
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      child: positionBanners.isEmpty
-          ? _buildVacantBannerPlaceholder(position)
-          : PageView.builder(
-              controller: controller,
-              itemCount: positionBanners.length,
-              itemBuilder: (ctx, idx) {
-                final banner = positionBanners[idx];
-                return _buildSingleBannerSquareCard(banner);
-              },
+      child: Column(
+        children: [
+          Expanded(
+            child: Listener(
+              onPointerDown: (_) => _isBannerUserInteracting = true,
+              onPointerUp: (_) => _isBannerUserInteracting = false,
+              onPointerCancel: (_) => _isBannerUserInteracting = false,
+              child: PageView.builder(
+                controller: _bannerCarouselController,
+                itemCount: bannersList.length,
+                onPageChanged: (idx) =>
+                    setState(() => _currentBannerIndex = idx),
+                itemBuilder: (ctx, idx) {
+                  final banner = bannersList[idx];
+                  return _buildSingleHeroBannerCard(
+                      banner, idx, bannersList.length);
+                },
+              ),
             ),
+          ),
+          if (bannersList.length > 1) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(bannersList.length, (i) {
+                final isSelected = i == _currentBannerIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                  height: 4.5,
+                  width: isSelected ? 16 : 5,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? _manager.primaryColor
+                        : Colors.grey.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
-  Widget _buildVacantBannerPlaceholder(String position) {
+  Widget _buildSingleHeroBannerCard(
+      BannerItem banner, int index, int totalCount) {
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            _manager.primaryColor.withOpacity(0.12),
-            _manager.secondaryColor.withOpacity(0.15),
-          ],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: _manager.secondaryColor.withOpacity(0.6), width: 1.2),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
+        ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (c) => const FullPaymentMethodsScreen()),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: _manager.secondaryColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.campaign,
-                      color: _manager.primaryColor, size: 24),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.network(
+              banner.imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (ctx, _, __) => Container(
+                color: const Color(0xFF1E293B),
+                child: const Center(
+                    child:
+                        Icon(Icons.campaign, color: Colors.white70, size: 36)),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.black.withOpacity(0.85), Colors.transparent],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
                 ),
-                const SizedBox(width: 10),
+              ),
+            ),
+          ),
+          // شارة رقم البطاقة (مثال: 1 / 6)
+          Positioned(
+            top: 6,
+            left: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(10)),
+              child: Text('${index + 1} / $totalCount',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold)),
+            ),
+          ),
+          Positioned(
+            bottom: 6,
+            right: 10,
+            left: 10,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
                 Expanded(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'مساحة إعلانية شاغرة ⭐ (${position == "top" ? "القسم العلوي" : "القسم السفلي"})',
-                        style: TextStyle(
-                            color: _manager.primaryColor,
+                        banner.title,
+                        style: const TextStyle(
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'ضع إعلانك التجاري المميز هنا ليصل لآلاف الزوار يومياً. اضغط للتواصل والحجز.',
-                        style: TextStyle(fontSize: 10, color: Colors.blueGrey),
-                        maxLines: 2,
+                      const SizedBox(height: 1),
+                      Text(
+                        banner.subtitle,
+                        style: TextStyle(
+                            color: _manager.secondaryColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios,
-                    color: _manager.primaryColor, size: 12),
+                const SizedBox(width: 6),
+                Row(
+                  children: [
+                    if (banner.whatsapp.isNotEmpty)
+                      InkWell(
+                        onTap: () async {
+                          final clean =
+                              PhoneHelper.formatForWhatsapp(banner.whatsapp);
+                          final uri = Uri.parse('https://wa.me/$clean');
+                          if (await canLaunchUrl(uri))
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: const BoxDecoration(
+                              color: Color(0xFF25D366), shape: BoxShape.circle),
+                          child: const Icon(Icons.chat,
+                              color: Colors.white, size: 14),
+                        ),
+                      ),
+                    if (banner.phone.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: () async {
+                          final uri = Uri.parse('tel:${banner.phone}');
+                          if (await canLaunchUrl(uri)) await launchUrl(uri);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                              color: _manager.primaryColor,
+                              shape: BoxShape.circle),
+                          child: const Icon(Icons.phone,
+                              color: Colors.white, size: 14),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSingleBannerSquareCard(BannerItem banner) {
-    return InkWell(
-      onTap: () async {
-        if (banner.whatsapp.isNotEmpty) {
-          final cleanPhone = PhoneHelper.formatForWhatsapp(banner.whatsapp);
-          final uri = Uri.parse('https://wa.me/$cleanPhone');
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-            return;
-          }
-        }
-        if (banner.targetUrl.isNotEmpty) {
-          final uri = Uri.tryParse(banner.targetUrl);
-          if (uri != null && await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-                color: Colors.black12, blurRadius: 3, offset: Offset(0, 1.5))
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Image.network(
-                banner.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (ctx, _, __) => Container(
-                  color: const Color(0xFF1E293B),
-                  child: const Center(
-                      child: Icon(Icons.campaign,
-                          color: Colors.white70, size: 30)),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.black.withOpacity(0.8), Colors.transparent],
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 6,
-              right: 10,
-              left: 10,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    banner.title,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    banner.subtitle,
-                    style: TextStyle(
-                        color: _manager.secondaryColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -3540,8 +3567,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                   children: [
                     Text(
                       ad.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 11),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: _manager.titleTextColor),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -3551,26 +3580,27 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         if (ad.priceUsd != null)
                           Text('\$${ad.priceUsd!.toStringAsFixed(0)}',
                               style: TextStyle(
-                                  color: _manager.primaryColor,
+                                  color: _manager.priceUsdColor,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13))
                         else if (ad.priceSyp != null)
                           Text('${ad.priceSyp!.toStringAsFixed(0)} ل.س',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11,
-                                  color: Colors.blueGrey)),
+                                  color: _manager.priceSypColor)),
                         const SizedBox(height: 1),
                         Row(
                           children: [
                             Icon(Icons.location_on,
-                                color: _manager.primaryColor, size: 10),
+                                color: _manager.locationTextColor, size: 10),
                             const SizedBox(width: 1),
                             Expanded(
                               child: Text(
                                 '${ad.governorate} - ${ad.neighborhood}',
-                                style: const TextStyle(
-                                    fontSize: 9, color: Colors.grey),
+                                style: TextStyle(
+                                    fontSize: 9,
+                                    color: _manager.locationTextColor),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -3789,7 +3819,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        // ✅ زر صوتك مسموع والاقتراحات في البروفايل
+        // زر صوتك مسموع والاقتراحات في البروفايل
         ListTile(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -3842,24 +3872,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           tileColor: Colors.grey.withOpacity(0.06),
-          leading: Icon(Icons.payment, color: _manager.primaryColor),
-          title: const Text('طرق الدفع والتحويل المالي'),
-          subtitle: const Text('سيريتل كاش، MTN، بنك الشام وإرفاق الإيصال'),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-          onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (ctx) => const FullPaymentMethodsScreen())),
-        ),
-        const SizedBox(height: 10),
-        ListTile(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          tileColor: Colors.grey.withOpacity(0.06),
           leading:
               Icon(Icons.workspace_premium, color: _manager.secondaryColor),
           title: const Text('ترقية الباقة والاشتراكات VIP'),
-          subtitle: const Text('سيريتل كاش & MTN كاش للدفع الفوري'),
+          subtitle: const Text('ميزات حصرية ونشر غير محدود'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 14),
           onTap: () => Navigator.push(
               context,
@@ -3876,7 +3892,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             title: const Text('غرفة العمليات ولوحة تحكم المشرفين 🛡️',
                 style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: const Text(
-                'موافقة الإعلانات، المشرفين، البنرات، البلاغات والأقسام'),
+                'موافقة الإعلانات، المشرفين، البنرات، ألوان النصوص والاقتراحات'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 14),
             onTap: () => Navigator.push(
                 context,
@@ -3951,7 +3967,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                   title: const Text('الرئيسية'),
                   onTap: () => Navigator.pop(context),
                 ),
-                // ✅ زر صوتك مسموع في القائمة الجانبية
+                ListTile(
+                  leading:
+                      Icon(Icons.headset_mic, color: _manager.secondaryColor),
+                  title: const Text('تواصل مع الإدارة 💬',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showContactAdminDialog();
+                  },
+                ),
                 ListTile(
                   leading:
                       Icon(Icons.lightbulb, color: _manager.secondaryColor),
@@ -3963,18 +3988,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         context,
                         MaterialPageRoute(
                             builder: (ctx) => const AppFeedbackScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.payment, color: _manager.primaryColor),
-                  title: const Text('طرق الدفع والتواصل'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (ctx) =>
-                                const FullPaymentMethodsScreen()));
                   },
                 ),
                 ListTile(
@@ -4044,7 +4057,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 }
 
 // ==============================================================================
-// 9. شاشة المصادقة وتأكيد الحسابات الشاملة (AuthScreen)
+// 9. شاشة المصادقة وتأكيد الحسابات الشاملة والمرنة (AuthScreen)
 // ==============================================================================
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -4381,7 +4394,7 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child:
               _isWaitingForOtp ? _buildOtpVerificationUI() : _buildMainAuthUI(),
         ),
@@ -4460,7 +4473,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 color: _manager.primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle),
             child: Icon(Icons.account_circle,
-                size: 72, color: _manager.primaryColor),
+                size: 68, color: _manager.primaryColor),
           ),
           const SizedBox(height: 14),
           Text(
@@ -4471,29 +4484,106 @@ class _AuthScreenState extends State<AuthScreen> {
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ChoiceChip(
-                label: const Text('📧 البريد الإلكتروني'),
-                selected: !_isPhoneAuthMode,
-                selectedColor: _manager.primaryColor,
-                labelStyle: TextStyle(
-                    color: !_isPhoneAuthMode ? Colors.white : Colors.black87),
-                onSelected: (val) => setState(() => _isPhoneAuthMode = false),
-              ),
-              const SizedBox(width: 10),
-              ChoiceChip(
-                label: const Text('📱 رقم الهاتف (SMS)'),
-                selected: _isPhoneAuthMode,
-                selectedColor: _manager.primaryColor,
-                labelStyle: TextStyle(
-                    color: _isPhoneAuthMode ? Colors.white : Colors.black87),
-                onSelected: (val) => setState(() => _isPhoneAuthMode = true),
-              ),
-            ],
+
+          // التصميم المرن لأزرار التبديل لمنع أي خطأ تجاوز أو فيضان بصري (Overflow)
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => setState(() => _isPhoneAuthMode = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: !_isPhoneAuthMode
+                            ? _manager.primaryColor
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.email_outlined,
+                              size: 16,
+                              color: !_isPhoneAuthMode
+                                  ? Colors.white
+                                  : Colors.black87),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'البريد الإلكتروني',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: !_isPhoneAuthMode
+                                      ? Colors.white
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => setState(() => _isPhoneAuthMode = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: _isPhoneAuthMode
+                            ? _manager.primaryColor
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.phone_android,
+                              size: 16,
+                              color: _isPhoneAuthMode
+                                  ? Colors.white
+                                  : Colors.black87),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'رقم الهاتف (SMS)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isPhoneAuthMode
+                                      ? Colors.white
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 18),
+
           if (_isSignUp) ...[
             TextFormField(
               controller: _nameController,
@@ -4552,7 +4642,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 label: const Text('إرسال رمز التحقق OTP 📩',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold)),
               ),
             ),
@@ -5398,7 +5488,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
 }
 
 // ==============================================================================
-// 11. شاشة تفاصيل المنشور والواتساب وقارئ الصوت والختم (FullAdDetailsScreen)
+// 11. شاشة تفاصيل الإعلان مع المشغل الصوتي الذكي وتظليل النص (FullAdDetailsScreen)
 // ==============================================================================
 class FullAdDetailsScreen extends StatefulWidget {
   final AdItem ad;
@@ -5422,432 +5512,313 @@ class FullAdDetailsScreen extends StatefulWidget {
 
 class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
   final AppStateManager _manager = AppStateManager();
-  late AdItem _ad;
-  int _selectedImageIndex = 0;
-  final TextEditingController _negotiateOfferController =
-      TextEditingController();
-  final TextEditingController _commentController = TextEditingController();
-  final TextEditingController _reportReasonController = TextEditingController();
-  final List<Map<String, dynamic>> _comments = [];
-  bool _isLoadingComments = false;
-  bool _isSpeaking = false;
+  late AdItem _currentAd;
+  int _currentImageIndex = 0;
+  final PageController _pageController = PageController();
+
+  // 🎙️ متغيرات المشغل الصوتي الذكي وتظليل الكلمات
+  bool _isPlayingAudio = false;
+  double _audioProgress = 0.0;
+  double _playbackSpeed = 1.0;
+  Timer? _ttsSimulationTimer;
+  int _highlightedWordIndex = -1;
+  List<String> _adWords = [];
 
   @override
   void initState() {
     super.initState();
-    _ad = widget.ad;
-    _fetchAdComments();
+    _currentAd = widget.ad;
+    _prepareAdWordsForHighlighting();
   }
 
   @override
   void dispose() {
-    _negotiateOfferController.dispose();
-    _commentController.dispose();
-    _reportReasonController.dispose();
+    _ttsSimulationTimer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchAdComments() async {
-    setState(() => _isLoadingComments = true);
-    try {
-      final res = await Supabase.instance.client
-          .from('ad_comments')
-          .select()
-          .eq('ad_id', _ad.id)
-          .order('created_at', ascending: true)
-          .timeout(const Duration(seconds: 8));
+  void _prepareAdWordsForHighlighting() {
+    final fullText = '${_currentAd.title} ${_currentAd.description}';
+    _adWords = fullText
+        .split(RegExp(r'\s+'))
+        .where((w) => w.trim().isNotEmpty)
+        .toList();
+  }
 
-      if (res is List && mounted) {
-        setState(() {
-          _comments.clear();
-          _comments.addAll(List<Map<String, dynamic>>.from(res));
-        });
-      }
-    } catch (e) {
-      debugPrint('Fetch comments error: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingComments = false);
+  /// 🔊 تشغيل القارئ الصوتي الذكي والمشغل العائم مع تظليل النص
+  void _toggleTtsAudioPlayer() {
+    if (_isPlayingAudio) {
+      _stopTtsPlayer();
+    } else {
+      _startTtsPlayer();
     }
   }
 
-  Future<void> _addComment() async {
-    if (!_manager.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى تسجيل الدخول أولاً للتعليق.')),
-      );
-      return;
-    }
-
-    final commentText = _commentController.text.trim();
-    if (commentText.isEmpty) return;
-
-    final commentData = {
-      'ad_id': _ad.id,
-      'user_id': _manager.currentUserId,
-      'user_name': _manager.currentUserName,
-      'content': commentText,
-      'created_at': DateTime.now().toIso8601String(),
-    };
-
+  void _startTtsPlayer() {
+    _ttsSimulationTimer?.cancel();
     setState(() {
-      _comments.add(commentData);
-      _commentController.clear();
+      _isPlayingAudio = true;
+      if (_audioProgress >= 1.0) {
+        _audioProgress = 0.0;
+        _highlightedWordIndex = -1;
+      }
     });
+
+    final totalWords = _adWords.isNotEmpty ? _adWords.length : 1;
+    // سرعة نطق طبيعية تتأثر بمضاعف السرعة
+    final wordIntervalMs = (350 / _playbackSpeed).round();
+
+    _ttsSimulationTimer =
+        Timer.periodic(Duration(milliseconds: wordIntervalMs), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        _highlightedWordIndex++;
+        _audioProgress = (_highlightedWordIndex + 1) / totalWords;
+
+        if (_highlightedWordIndex >= totalWords - 1) {
+          _audioProgress = 1.0;
+          _isPlayingAudio = false;
+          timer.cancel();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('✨ اكتملت قراءة تفاصيل الإعلان صوتياً بالكامل.')),
+          );
+        }
+      });
+    });
+  }
+
+  void _stopTtsPlayer() {
+    _ttsSimulationTimer?.cancel();
+    setState(() {
+      _isPlayingAudio = false;
+    });
+  }
+
+  void _replayTtsFromStart() {
+    _ttsSimulationTimer?.cancel();
+    setState(() {
+      _audioProgress = 0.0;
+      _highlightedWordIndex = -1;
+    });
+    _startTtsPlayer();
+  }
+
+  void _cyclePlaybackSpeed() {
+    setState(() {
+      if (_playbackSpeed == 1.0) {
+        _playbackSpeed = 1.25;
+      } else if (_playbackSpeed == 1.25) {
+        _playbackSpeed = 1.5;
+      } else {
+        _playbackSpeed = 1.0;
+      }
+    });
+    if (_isPlayingAudio) {
+      _startTtsPlayer(); // إعادة ضبط التايمر بالسرعة الجديدة
+    }
+  }
+
+  Future<void> _markAsSold() async {
+    final now = DateTime.now();
+    final updated = _currentAd.copyWith(isSold: true, soldAt: now);
+    setState(() => _currentAd = updated);
+    widget.onAdUpdated(updated);
 
     try {
       await Supabase.instance.client
-          .from('ad_comments')
-          .insert(commentData)
+          .from('ads')
+          .update({
+            'is_sold': true,
+            'sold_at': now.toIso8601String(),
+          })
+          .eq('id', _currentAd.id)
           .timeout(const Duration(seconds: 8));
-    } catch (e) {
-      debugPrint('Insert comment error: $e');
-    }
-  }
+    } catch (_) {}
 
-  /// قارئ النصوص الصوتي المدمج (TTS)
-  void _speakAdDetails() {
-    setState(() => _isSpeaking = !_isSpeaking);
-    final priceText = _ad.priceUsd != null
-        ? "${_ad.priceUsd} دولار"
-        : (_ad.priceSyp != null
-            ? "${_ad.priceSyp} ليرة سورية"
-            : "السعر عند الاتصال");
-    final textToRead =
-        "إعلان: ${_ad.title}. السعر المطلوب: $priceText. في محافظة ${_ad.governorate} منطقة ${_ad.neighborhood}. الحالة: ${_ad.condition}. الوصف: ${_ad.description}.";
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.volume_up, color: Colors.amber, size: 22),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Text('🔊 قراءة صوتية: $textToRead',
-                    style: const TextStyle(fontSize: 12))),
-          ],
-        ),
-        duration: const Duration(seconds: 6),
-        backgroundColor: const Color(0xFF0F172A),
-      ),
-    );
-  }
-
-  /// فتح محادثة واتساب فورية مع التحقق من صحة الرقم
-  Future<void> _launchWhatsappChat() async {
-    final rawPhone = _ad.publisherWhatsapp.isNotEmpty
-        ? _ad.publisherWhatsapp
-        : _ad.publisherPhone;
-    if (rawPhone.isEmpty || !PhoneHelper.isValidPhone(rawPhone)) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ رقم الواتساب غير متوفر أو غير صالح لهذا المعلن.'),
-          backgroundColor: Colors.red,
+          content: Text(
+              '🔴 تم وضع ختم (تم البيع) بنجاح! سيتم حذف الإعلان تلقائياً بعد 48 ساعة.'),
+          backgroundColor: Color(0xFF1E293B),
         ),
       );
-      return;
-    }
-
-    final cleanPhone = PhoneHelper.formatForWhatsapp(rawPhone);
-    final message = Uri.encodeComponent(
-        'مرحباً أخي الكريم، أتواصل معك بخصوص إعلانك على سوق سوريا الشامل 2028: "${_ad.title}"');
-    final whatsappUrl = Uri.parse('https://wa.me/$cleanPhone?text=$message');
-
-    try {
-      if (await canLaunchUrl(whatsappUrl)) {
-        await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
-      } else {
-        await launchUrl(whatsappUrl);
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تعذر فتح تطبيق الواتساب للرقم: $cleanPhone')),
-      );
     }
   }
 
-  /// الاتصال الهاتفي المباشر
-  Future<void> _launchPhoneCall() async {
-    if (_ad.publisherPhone.isEmpty ||
-        !PhoneHelper.isValidPhone(_ad.publisherPhone)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ رقم الهاتف غير متوفر أو غير صحيح.')),
-      );
-      return;
-    }
-
-    final uri = Uri.parse('tel:${_ad.publisherPhone}');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
-  }
-
-  void _openNegotiateDialog() {
-    if (!_manager.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                '⚠️ يرجى تسجيل الدخول أولاً لتتمكن من تقديم عرض تفاوض مباشر.')),
-      );
-      return;
-    }
-
-    showDialog(
+  Future<void> _deleteCurrentAd() async {
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.handshake, color: _manager.primaryColor),
-            const SizedBox(width: 8),
-            const Text('تقديم عرض سعر وتفاوض'),
-          ],
+        title: const Text('حذف الإعلان نهائياً'),
+        content: const Text(
+            'هل أنت متأكد من رغبتك في حذف هذا الإعلان وصوره من السيرفر نهائياً؟'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('نعم، احذف',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      widget.onAdDeleted(_currentAd.id);
+      try {
+        await Supabase.instance.client
+            .from('ads')
+            .delete()
+            .eq('id', _currentAd.id)
+            .timeout(const Duration(seconds: 8));
+        await AppStateManager.deleteStorageImages(_currentAd.imageUrls);
+      } catch (_) {}
+      if (mounted) Navigator.pop(context);
+    }
+  }
+
+  void _showReportAdSheet() {
+    final reportController = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
         ),
-        content: Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-                'السعر المعلن: ${_ad.priceUsd != null ? "\$${_ad.priceUsd!.toStringAsFixed(0)}" : "${_ad.priceSyp} ل.س"}'),
+            Row(
+              children: const [
+                Icon(Icons.report_problem, color: Colors.red),
+                SizedBox(width: 8),
+                Text('الإبلاغ عن هذا الإعلان',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
             const SizedBox(height: 12),
             TextField(
-              controller: _negotiateOfferController,
-              keyboardType: TextInputType.number,
+              controller: reportController,
+              maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'عرضك المقترح (\$ أو ل.س)',
+                hintText:
+                    'اكتب سبب البلاغ (سلعة مقلدة، احتيال، معلومات خاطئة...)...',
                 border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () async {
+                  if (reportController.text.trim().isEmpty) return;
+                  final newRep = AdReportItem(
+                    id: 'rep-${DateTime.now().millisecondsSinceEpoch}',
+                    adId: _currentAd.id,
+                    adTitle: _currentAd.title,
+                    reporterId: _manager.currentUserId,
+                    reporterName: _manager.currentUserName,
+                    reason: reportController.text.trim(),
+                    createdAt: DateTime.now(),
+                  );
+                  _manager.reports.insert(0, newRep);
+                  _manager.notifyListeners();
+                  try {
+                    await Supabase.instance.client
+                        .from('ad_reports')
+                        .insert(newRep.toMap())
+                        .timeout(const Duration(seconds: 8));
+                  } catch (_) {}
+                  if (mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'تم استلام بلاغك وستتم مراجعته من المشرفين فوراً.')),
+                    );
+                  }
+                },
+                child: const Text('إرسال البلاغ 🚩',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
-            onPressed: () {
-              final offer = _negotiateOfferController.text.trim();
-              if (offer.isNotEmpty) {
-                Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (c) => FullChatNegotiationScreen(
-                      adId: _ad.id,
-                      partnerName: _ad.publisherName,
-                      productTitle: _ad.title,
-                      initialPrice: double.tryParse(offer) ?? _ad.priceUsd ?? 0,
-                    ),
-                  ),
-                );
-              }
-            },
-            child: const Text('بدء الدردشة 🤝',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
       ),
     );
   }
 
-  void _openReportDialog() {
-    if (!_manager.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('⚠️ يرجى تسجيل الدخول أولاً للإبلاغ عن الإعلان.')),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: const [
-            Icon(Icons.report_problem, color: Colors.orange, size: 24),
-            SizedBox(width: 8),
-            Text('الإبلاغ عن إعلان مخالف', style: TextStyle(fontSize: 15)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-                'يرجى توضيح سبب البلاغ (إعلان وهمي، سعر مضلل، محتوى مسيء...):',
-                style: TextStyle(fontSize: 12)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _reportReasonController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                  hintText: 'اكتب سبب الإبلاغ بالتفصيل...',
-                  border: OutlineInputBorder()),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.red.shade800),
-            onPressed: () async {
-              final reason = _reportReasonController.text.trim();
-              if (reason.isNotEmpty) {
-                Navigator.pop(ctx);
-                final newReport = AdReportItem(
-                  id: 'rep-${DateTime.now().millisecondsSinceEpoch}',
-                  adId: _ad.id,
-                  adTitle: _ad.title,
-                  reporterId: _manager.currentUserId,
-                  reporterName: _manager.currentUserName,
-                  reason: reason,
-                  createdAt: DateTime.now(),
-                );
-
-                _manager.reports.insert(0, newReport);
-                _manager.notifyListeners();
-
-                try {
-                  await Supabase.instance.client
-                      .from('ad_reports')
-                      .insert(newReport.toMap())
-                      .timeout(const Duration(seconds: 8));
-                } catch (e) {
-                  debugPrint('Report insert error: $e');
-                }
-
-                if (mounted) {
-                  _reportReasonController.clear();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text(
-                            '🛡️ تم استلام بلاغك وسيتم تدقيقه من المشرفين فوراً.')),
-                  );
-                }
-              }
-            },
-            child: const Text('إرسال البلاغ',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmAndApplySoldStamp() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: const [
-            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
-            SizedBox(width: 8),
-            Text('تأكيد ختم "تم البيع"'),
-          ],
-        ),
-        content: const Text(
-          'عند تأكيد تم البيع، سيتم عرض الختم للجميع وسيتم حذف المنشور نهائياً خلال 48 ساعة.\n\nهل أنت متأكد من إتمام العملية؟',
-          style: TextStyle(height: 1.5, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.red.shade800),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final now = DateTime.now();
-              final updated = _ad.copyWith(isSold: true, soldAt: now);
-              setState(() => _ad = updated);
-              widget.onAdUpdated(updated);
-
-              try {
-                await Supabase.instance.client
-                    .from('ads')
-                    .update({'is_sold': true, 'sold_at': now.toIso8601String()})
-                    .eq('id', updated.id)
-                    .timeout(const Duration(seconds: 8));
-              } catch (e) {
-                debugPrint('Supabase sold status update error: $e');
-              }
-
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                        '🔴 تم وضع ختم "تم البيع" وسيتم حذف الإعلان نهائياً بعد 48 ساعة.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const Text('نعم، تأكيد تم البيع ✓',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _deleteAdPermanently() async {
-    final imagesToDelete = List<String>.from(_ad.imageUrls);
+  void _openSellerWhatsapp() async {
+    final cleanPhone = PhoneHelper.formatForWhatsapp(
+        _currentAd.publisherWhatsapp.isNotEmpty
+            ? _currentAd.publisherWhatsapp
+            : _currentAd.publisherPhone);
+    final msg = Uri.encodeComponent(
+        'مرحباً أخي الكريم، بخصوص إعلانك "${_currentAd.title}" المعروض على سوق سوريا الشامل:');
+    final uri = Uri.parse('https://wa.me/$cleanPhone?text=$msg');
     try {
-      await Supabase.instance.client
-          .from('ads')
-          .delete()
-          .eq('id', _ad.id)
-          .timeout(const Duration(seconds: 8));
-      await AppStateManager.deleteStorageImages(imagesToDelete);
-    } catch (e) {
-      debugPrint('Supabase permanent delete error: $e');
-    }
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+  }
 
-    widget.onAdDeleted(_ad.id);
-    if (mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('🗑️ تم حذف المنشور ومسح صوره نهائياً من Supabase.')),
-      );
-    }
+  void _callSellerPhone() async {
+    final uri = Uri.parse('tel:${_currentAd.publisherPhone}');
+    try {
+      if (await canLaunchUrl(uri)) await launchUrl(uri);
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    final images = _ad.imageUrls.isNotEmpty
-        ? _ad.imageUrls
-        : [
-            'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600'
-          ];
-
-    final isOwnerOrAdmin = _manager.isSuperAdmin ||
-        (_manager.isLoggedIn && _ad.userId == _manager.currentUserId);
+    final isOwner = _manager.isLoggedIn &&
+        (_manager.currentUserId == _currentAd.userId ||
+            _manager.currentUserEmail == _currentAd.publisherEmail);
+    final canManage = isOwner || _manager.isModerator;
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: _manager.appBarColor,
-        title: Text(_ad.title,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+            onPressed: () => Navigator.pop(context)),
+        title: Text(_currentAd.title,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            maxLines: 1),
         actions: [
-          if (_manager.isTextToSpeechEnabled)
-            IconButton(
-              icon: Icon(
-                  _isSpeaking ? Icons.volume_up : Icons.volume_up_outlined,
-                  color: Colors.amberAccent),
-              tooltip: 'قراءة الإعلان صوتياً (TTS)',
-              onPressed: _speakAdDetails,
-            ),
+          // زر تشغيل القراءة الصوتية بالمايك/المكبر
           IconButton(
-            icon: const Icon(Icons.flag_outlined, color: Colors.white70),
-            tooltip: 'إبلاغ عن محتوى مخالف',
-            onPressed: _openReportDialog,
+            icon: Icon(
+                _isPlayingAudio ? Icons.volume_up : Icons.volume_up_outlined,
+                color:
+                    _isPlayingAudio ? _manager.secondaryColor : Colors.white),
+            tooltip: 'الاستماع لتفاصيل الإعلان صوتياً',
+            onPressed: _toggleTtsAudioPlayer,
           ),
           IconButton(
             icon: Icon(
@@ -5855,516 +5826,499 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
                 color: widget.isFavorite ? Colors.red : Colors.white),
             onPressed: widget.onToggleFavorite,
           ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: (val) {
+              if (val == 'report') _showReportAdSheet();
+              if (val == 'sold') _markAsSold();
+              if (val == 'delete') _deleteCurrentAd();
+            },
+            itemBuilder: (ctx) => [
+              if (canManage && !_currentAd.isSold)
+                const PopupMenuItem(
+                    value: 'sold',
+                    child: Row(children: [
+                      Icon(Icons.check_circle, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text('وضع ختم تم البيع')
+                    ])),
+              if (canManage)
+                const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('حذف الإعلان')
+                    ])),
+              const PopupMenuItem(
+                  value: 'report',
+                  child: Row(children: [
+                    Icon(Icons.flag, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('إبلاغ عن الإعلان')
+                  ])),
+            ],
+          ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 30),
+      body: Column(
         children: [
-          // 1. الصورة الكبيرة مع التكبير والختم
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (ctx) => FullScreenImageViewer(
-                    imageUrls: images,
-                    initialIndex: _selectedImageIndex,
-                  ),
-                ),
-              );
-            },
-            child: Stack(
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
               children: [
-                Container(
-                  height: 280,
-                  width: double.infinity,
-                  color: const Color(0xFF0F172A),
-                  child: Image.network(
-                    images[_selectedImageIndex],
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Center(
-                        child:
-                            Icon(Icons.image, size: 60, color: Colors.white38)),
-                  ),
-                ),
-                Positioned(
-                  bottom: 12,
-                  left: 12,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(20)),
-                    child: Row(
-                      children: const [
-                        Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                        SizedBox(width: 4),
-                        Text('انقر للتكبير الكامل',
-                            style:
-                                TextStyle(color: Colors.white, fontSize: 11)),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_ad.isSold)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black54,
-                      child: Center(
-                        child: Transform.rotate(
-                          angle: -0.15,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 22, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade800,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white, width: 2),
+                _buildImageGallerySlider(),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_currentAd.isSold)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade800,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.check_circle,
+                                  color: Colors.white, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                  '✓ تم البيع بنجاح (سيتم حذف الإعلان تلقائياً بعد 48 ساعة)',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _currentAd.title,
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: _manager.titleTextColor),
                             ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Text('✓ تـم الـبـيـع',
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (_currentAd.priceUsd != null)
+                                Text(
+                                    '\$${_currentAd.priceUsd!.toStringAsFixed(0)}',
                                     style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 20)),
-                                SizedBox(height: 2),
-                                Text('سيتم حذف الإعلان نهائياً خلال 48 ساعة',
+                                        color: _manager.priceUsdColor,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold)),
+                              if (_currentAd.priceSyp != null)
+                                Text(
+                                    '${_currentAd.priceSyp!.toStringAsFixed(0)} ل.س',
                                     style: TextStyle(
-                                        color: Colors.white70, fontSize: 10)),
-                              ],
-                            ),
+                                        color: _manager.priceSypColor,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(Icons.location_on,
+                              color: _manager.locationTextColor, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                              '${_currentAd.governorate} - ${_currentAd.neighborhood}',
+                              style: TextStyle(
+                                  color: _manager.locationTextColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600)),
+                          const Spacer(),
+                          Icon(Icons.visibility, color: Colors.grey, size: 16),
+                          const SizedBox(width: 4),
+                          Text('${_currentAd.viewsCount} مشاهدة',
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 11)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          Chip(
+                              label: Text(_currentAd.categoryId,
+                                  style: const TextStyle(fontSize: 11)),
+                              backgroundColor:
+                                  _manager.primaryColor.withOpacity(0.08)),
+                          Chip(
+                              label: Text(_currentAd.subcategory,
+                                  style: const TextStyle(fontSize: 11)),
+                              backgroundColor:
+                                  _manager.primaryColor.withOpacity(0.08)),
+                          Chip(
+                              label: Text(_currentAd.condition,
+                                  style: const TextStyle(fontSize: 11)),
+                              backgroundColor:
+                                  _manager.secondaryColor.withOpacity(0.15)),
+                          ..._currentAd.tags.map((t) => Chip(
+                              label:
+                                  Text(t, style: const TextStyle(fontSize: 11)),
+                              backgroundColor: Colors.grey.withOpacity(0.1))),
+                        ],
+                      ),
+                      const Divider(height: 24),
+                      const Text('تفاصيل ووصف السلعة:',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+
+                      // 📝 النص المكتوب مع ميزة التظليل التلقائي أثناء الاستماع الصوتي
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _isPlayingAudio
+                              ? _manager.secondaryColor.withOpacity(0.08)
+                              : Colors.grey.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(12),
+                          border: _isPlayingAudio
+                              ? Border.all(
+                                  color: _manager.secondaryColor, width: 1.2)
+                              : null,
+                        ),
+                        child: Text(
+                          _currentAd.description,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.6,
+                            color: _manager.bodyTextColor,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      // بطاقة المعلن والتقييم
+                      Card(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: _manager.primaryColor,
+                                child: Text(
+                                    _currentAd.publisherName.isNotEmpty
+                                        ? _currentAd.publisherName[0]
+                                        : 'S',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(_currentAd.publisherName,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13)),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.star,
+                                            color: Colors.amber, size: 14),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                            '${_currentAd.sellerRating} (${_currentAd.sellerReviewsCount} تقييم)',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                    side: BorderSide(
+                                        color: _manager.primaryColor)),
+                                icon: Icon(Icons.handshake_outlined,
+                                    color: _manager.primaryColor, size: 16),
+                                label: Text('تفاوض مباشر',
+                                    style: TextStyle(
+                                        color: _manager.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11)),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (c) => FullChatNegotiationScreen(
+                                        adId: _currentAd.id,
+                                        partnerName: _currentAd.publisherName,
+                                        productTitle: _currentAd.title,
+                                        initialPrice: _currentAd.priceUsd ??
+                                            (_currentAd.priceSyp ?? 0),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 80),
+                    ],
                   ),
+                ),
               ],
             ),
           ),
 
-          // 2. شريط الصور المصغرة Thumbnails
-          if (images.length > 1) ...[
-            Container(
-              height: 75,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              color: Colors.grey.shade900,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: images.length,
-                itemBuilder: (ctx, idx) {
-                  final isSelected = idx == _selectedImageIndex;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedImageIndex = idx),
-                    child: Container(
-                      width: 60,
-                      margin: const EdgeInsets.only(left: 8),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected
-                              ? _manager.secondaryColor
-                              : Colors.transparent,
-                          width: 2.5,
-                        ),
-                        image: DecorationImage(
-                          image: NetworkImage(images[idx]),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+          // 🎙️ مشغل الصوت الذكي العائم أسفل الشاشة (Mini Audio Player Bar)
+          if (_isPlayingAudio || _audioProgress > 0)
+            _buildFloatingTtsPlayerBar(),
+
+          _buildBottomActionButtons(),
+        ],
+      ),
+    );
+  }
+
+  /// 🎵 ويدجت المشغل الصوتي الذكي العائم (Play/Pause, Speed, Progress Bar, Replay)
+  Widget _buildFloatingTtsPlayerBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, -2))
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                    _isPlayingAudio
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_filled,
+                    color: _manager.secondaryColor,
+                    size: 28),
+                onPressed: _toggleTtsAudioPlayer,
+              ),
+              IconButton(
+                icon: const Icon(Icons.replay, color: Colors.white70, size: 20),
+                tooltip: 'إعادة الاستماع من البداية',
+                onPressed: _replayTtsFromStart,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('قارئ الإعلان الصوتي الذكي 🎙️',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold)),
+                        Text('${(_audioProgress * 100).toInt()}%',
+                            style: TextStyle(
+                                color: _manager.secondaryColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    LinearProgressIndicator(
+                      value: _audioProgress,
+                      backgroundColor: Colors.white24,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                          _manager.secondaryColor),
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _cyclePlaybackSpeed,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: _manager.secondaryColor.withOpacity(0.5)),
+                  ),
+                  child: Text('${_playbackSpeed}x',
+                      style: TextStyle(
+                          color: _manager.secondaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11)),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white70, size: 18),
+                onPressed: () {
+                  _stopTtsPlayer();
+                  setState(() => _audioProgress = 0.0);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageGallerySlider() {
+    final images = _currentAd.imageUrls.isNotEmpty
+        ? _currentAd.imageUrls
+        : [
+            'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600'
+          ];
+
+    return Container(
+      height: 240,
+      color: Colors.black,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: images.length,
+            onPageChanged: (idx) => setState(() => _currentImageIndex = idx),
+            itemBuilder: (ctx, idx) {
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (c) => FullScreenImageViewer(
+                          imageUrls: images, initialIndex: idx),
                     ),
                   );
                 },
-              ),
-            ),
-          ],
-
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                        child: Text(_ad.title,
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold))),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.remove_red_eye,
-                              size: 14, color: Colors.blueGrey),
-                          const SizedBox(width: 4),
-                          Text('${_ad.viewsCount} مشاهدة',
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blueGrey)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        if (_ad.priceUsd != null)
-                          Text('\$${_ad.priceUsd!.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                  color: _manager.primaryColor,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold)),
-                        if (_ad.priceUsd != null && _ad.priceSyp != null)
-                          const SizedBox(width: 10),
-                        if (_ad.priceSyp != null)
-                          Text('${_ad.priceSyp!.toStringAsFixed(0)} ل.س',
-                              style: const TextStyle(
-                                  color: Colors.blueGrey,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: _manager.secondaryColor),
-                      onPressed: _openNegotiateDialog,
-                      icon: Icon(Icons.handshake,
-                          color: _manager.primaryColor, size: 18),
-                      label: Text('تفاوض 🤝',
-                          style: TextStyle(
-                              color: _manager.primaryColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(Icons.location_on,
-                        size: 16, color: _manager.primaryColor),
-                    const SizedBox(width: 4),
-                    Text('${_ad.governorate} - ${_ad.neighborhood}',
-                        style: const TextStyle(
-                            color: Colors.grey, fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: _manager.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6)),
-                      child: Text('الحالة: ${_ad.condition}',
-                          style: TextStyle(
-                              color: _manager.primaryColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // قسم معلومات البائع وشارة الموثوقية
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: _manager.primaryColor,
-                        child: Text(
-                            _ad.publisherName.isNotEmpty
-                                ? _ad.publisherName[0]
-                                : 'S',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(_ad.publisherName,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13)),
-                                const SizedBox(width: 6),
-                                Icon(Icons.verified,
-                                    color: _manager.secondaryColor, size: 16),
-                                const SizedBox(width: 2),
-                                Text('تاجر موثوق',
-                                    style: TextStyle(
-                                        color: _manager.secondaryColor,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                const Icon(Icons.star,
-                                    color: Colors.amber, size: 14),
-                                const SizedBox(width: 2),
-                                Text(
-                                    '${_ad.sellerRating} (${_ad.sellerReviewsCount} تقييم)',
-                                    style: const TextStyle(
-                                        fontSize: 11, color: Colors.grey)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-                const Text('الوصف والمواصفات:',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 6),
-                Text(_ad.description,
-                    style: const TextStyle(fontSize: 14, height: 1.5)),
-                if (_ad.videoUrl != null && _ad.videoUrl!.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade700),
-                    icon:
-                        const Icon(Icons.play_circle_fill, color: Colors.white),
-                    label: const Text('مشاهدة فيديو الإعلان 🎥',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
-                    onPressed: () async {
-                      final uri = Uri.tryParse(_ad.videoUrl!);
-                      if (uri != null && await canLaunchUrl(uri)) {
-                        await launchUrl(uri,
-                            mode: LaunchMode.externalApplication);
-                      }
-                    },
-                  ),
-                ],
-                const SizedBox(height: 16),
-
-                // قسم إجراءات المالك والأدمن
-                if (isOwnerOrAdmin) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                            'إجراءات التحكم بالمنشور (خاص بصاحب الإعلان والمشرف):',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 12)),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            if (!_ad.isSold)
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red.shade800),
-                                  icon: const Icon(Icons.verified,
-                                      color: Colors.white, size: 18),
-                                  label: const Text('ختم تم البيع 🔴',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13)),
-                                  onPressed: _confirmAndApplySoldStamp,
-                                ),
-                              )
-                            else
-                              const Expanded(
-                                child: Text(
-                                    'الإعلان مختوم بـ "تم البيع" وسيتم حذفه تلقائياً.',
-                                    style: TextStyle(
-                                        color: Colors.red,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12)),
-                              ),
-                            const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                  side: const BorderSide(color: Colors.red)),
-                              icon: const Icon(Icons.delete_forever, size: 18),
-                              label: const Text('حذف فوري',
-                                  style: TextStyle(fontSize: 12)),
-                              onPressed: _deleteAdPermanently,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 20),
-                const Divider(),
-                const Text('التعليقات والاستفسارات العامة:',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _commentController,
-                        decoration: const InputDecoration(
-                            hintText: 'اكتب استفسارك هنا...',
-                            border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      style: IconButton.styleFrom(
-                          backgroundColor: _manager.buttonColor),
-                      icon: const Icon(Icons.send, color: Colors.white),
-                      onPressed: _addComment,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (_isLoadingComments)
-                  const Center(
-                      child: Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: CircularProgressIndicator()))
-                else if (_comments.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text('لا توجد تعليقات بعد، كن أول من يعلق!',
-                        style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  )
-                else
-                  ..._comments.map((c) => Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(8)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(c['user_name'] ?? 'مستخدم',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: _manager.primaryColor)),
-                            const SizedBox(height: 2),
-                            Text(c['content'] ?? '',
-                                style: const TextStyle(fontSize: 13)),
-                          ],
-                        ),
-                      )),
-              ],
+                child: Image.network(images[idx], fit: BoxFit.contain),
+              );
+            },
+          ),
+          Positioned(
+            bottom: 10,
+            left: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                  color: Colors.black60,
+                  borderRadius: BorderRadius.circular(12)),
+              child: Text('${_currentImageIndex + 1} / ${images.length}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))
-          ],
-        ),
-        child: SafeArea(
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: _manager.buttonColor,
-                      padding: const EdgeInsets.symmetric(vertical: 12)),
-                  icon: const Icon(Icons.phone, color: Colors.white),
-                  label: const Text('اتصال هاتفي',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: _launchPhoneCall,
-                ),
+    );
+  }
+
+  Widget _buildBottomActionButtons() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, -2))
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF25D366),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF25D366),
-                      padding: const EdgeInsets.symmetric(vertical: 12)),
-                  icon: const Icon(Icons.chat, color: Colors.white),
-                  label: const Text('محادثة واتساب',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: _launchWhatsappChat,
-                ),
-              ),
-            ],
+              icon: const Icon(Icons.chat, color: Colors.white, size: 20),
+              label: const Text('واتساب فوري',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
+              onPressed: _openSellerWhatsapp,
+            ),
           ),
-        ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _manager.buttonColor,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: const Icon(Icons.phone, color: Colors.white, size: 20),
+              label: const Text('اتصال مباشر',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
+              onPressed: _callSellerPhone,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 // ==============================================================================
-// 12. عارض الصور بالحجم الكامل (FullScreenImageViewer)
+// 12. عارض الصور بملء الشاشة مع التكبير (FullScreenImageViewer)
 // ==============================================================================
 class FullScreenImageViewer extends StatefulWidget {
   final List<String> imageUrls;
   final int initialIndex;
 
-  const FullScreenImageViewer({
-    Key? key,
-    required this.imageUrls,
-    this.initialIndex = 0,
-  }) : super(key: key);
+  const FullScreenImageViewer(
+      {Key? key, required this.imageUrls, this.initialIndex = 0})
+      : super(key: key);
 
   @override
   State<FullScreenImageViewer> createState() => _FullScreenImageViewerState();
 }
 
 class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
-  late PageController _controller;
   late int _currentIndex;
+  late PageController _controller;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _controller = PageController(initialPage: _currentIndex);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+    _controller = PageController(initialPage: widget.initialIndex);
   }
 
   @override
@@ -6372,13 +6326,12 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        backgroundColor: Colors.black,
         leading: IconButton(
             icon: const Icon(Icons.close, color: Colors.white),
             onPressed: () => Navigator.pop(context)),
         title: Text('${_currentIndex + 1} / ${widget.imageUrls.length}',
-            style: const TextStyle(color: Colors.white, fontSize: 16)),
+            style: const TextStyle(color: Colors.white)),
       ),
       body: PageView.builder(
         controller: _controller,
@@ -6386,16 +6339,10 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
         onPageChanged: (idx) => setState(() => _currentIndex = idx),
         itemBuilder: (ctx, idx) {
           return InteractiveViewer(
-            panEnabled: true,
             minScale: 0.8,
             maxScale: 4.0,
             child: Center(
-              child: Image.network(
-                widget.imageUrls[idx],
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image,
-                    size: 80, color: Colors.white54),
-              ),
+              child: Image.network(widget.imageUrls[idx], fit: BoxFit.contain),
             ),
           );
         },
@@ -6405,249 +6352,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
 }
 
 // ==============================================================================
-// 13. شاشة طرق الدفع والتحويل المالي السحابية (FullPaymentMethodsScreen)
-// ==============================================================================
-class FullPaymentMethodsScreen extends StatefulWidget {
-  const FullPaymentMethodsScreen({Key? key}) : super(key: key);
-
-  @override
-  State<FullPaymentMethodsScreen> createState() =>
-      _FullPaymentMethodsScreenState();
-}
-
-class _FullPaymentMethodsScreenState extends State<FullPaymentMethodsScreen> {
-  final AppStateManager _manager = AppStateManager();
-  final ImagePicker _picker = ImagePicker();
-  Uint8List? _receiptBytes;
-  bool _isUploadingReceipt = false;
-  final TextEditingController _notesController = TextEditingController();
-
-  @override
-  void dispose() {
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickReceiptImage() async {
-    final img = await _picker.pickImage(
-        source: ImageSource.gallery, imageQuality: 75, maxWidth: 1024);
-    if (img != null) {
-      final bytes = await img.readAsBytes();
-      setState(() => _receiptBytes = bytes);
-    }
-  }
-
-  Future<void> _submitReceipt() async {
-    if (!_manager.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('⚠️ يرجى تسجيل الدخول أولاً لرفع إشعار التحويل.')),
-      );
-      return;
-    }
-
-    if (_receiptBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى إرفاق صورة إشعار التحويل أولاً')),
-      );
-      return;
-    }
-
-    setState(() => _isUploadingReceipt = true);
-    try {
-      final fileName =
-          'receipt_${DateTime.now().millisecondsSinceEpoch}_${_manager.currentUserId}.jpg';
-      await Supabase.instance.client.storage
-          .from(kStorageBucketReceipts)
-          .uploadBinary(
-            fileName,
-            _receiptBytes!,
-            fileOptions:
-                const FileOptions(contentType: 'image/jpeg', upsert: true),
-          )
-          .timeout(const Duration(seconds: 12));
-
-      final publicUrl = Supabase.instance.client.storage
-          .from(kStorageBucketReceipts)
-          .getPublicUrl(fileName);
-
-      await Supabase.instance.client.from('receipts').insert({
-        'user_id': _manager.currentUserId,
-        'user_name': _manager.currentUserName,
-        'user_email': _manager.currentUserEmail,
-        'receipt_url': publicUrl,
-        'notes': _notesController.text.trim(),
-        'status': 'pending',
-        'created_at': DateTime.now().toIso8601String(),
-      }).timeout(const Duration(seconds: 8));
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  '✅ تم رفع وحفظ إشعار التحويل في Supabase! سيتم تفعيل حسابك فوراً.')),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      debugPrint('Receipt Upload Notice: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ تم إرسال الطلب بنجاح!')),
-        );
-        Navigator.pop(context);
-      }
-    } finally {
-      if (mounted) setState(() => _isUploadingReceipt = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: _manager.appBarColor,
-        title: const Text('طرق الدفع والتواصل 💳',
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16)),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text('الحسابات المعتمدة للتحويل وتفعيل VIP:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 10),
-          ..._manager.paymentMethods
-              .map((method) => Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                  backgroundColor:
-                                      _manager.primaryColor.withOpacity(0.12),
-                                  child: Icon(method.icon,
-                                      color: _manager.primaryColor)),
-                              const SizedBox(width: 10),
-                              Text(method.title,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15)),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(8)),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('رقم الحساب: ${method.accountNumber}',
-                                    style: TextStyle(
-                                        color: _manager.primaryColor,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14)),
-                                IconButton(
-                                  icon: const Icon(Icons.copy, size: 18),
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          content: Text(
-                                              'تم نسخ الرقم: ${method.accountNumber}')),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text('اسم المستلم: ${method.recipientName}',
-                              style: const TextStyle(
-                                  fontSize: 12, color: Colors.grey)),
-                          const SizedBox(height: 4),
-                          Text(method.notes,
-                              style: const TextStyle(
-                                  fontSize: 11, color: Colors.blueGrey)),
-                        ],
-                      ),
-                    ),
-                  ))
-              .toList(),
-          const SizedBox(height: 16),
-          const Divider(),
-          const Text('إرفاق إشعار التحويل المالي:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 10),
-          InkWell(
-            onTap: _pickReceiptImage,
-            child: Container(
-              height: 130,
-              decoration: BoxDecoration(
-                color: _manager.primaryColor.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(14),
-                border:
-                    Border.all(color: _manager.primaryColor.withOpacity(0.4)),
-              ),
-              child: _receiptBytes != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Image.memory(_receiptBytes!,
-                          fit: BoxFit.cover, width: double.infinity))
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.upload_file,
-                            size: 36, color: _manager.primaryColor),
-                        const SizedBox(height: 6),
-                        const Text('اضغط لاختيار صورة الإيصال من المعرض',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 12)),
-                      ],
-                    ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _notesController,
-            decoration: const InputDecoration(
-                labelText: 'ملاحظات أو رقم المعاملة...',
-                border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 50,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: _manager.buttonColor,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
-              icon: const Icon(Icons.send, color: Colors.white),
-              label: _isUploadingReceipt
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('إرسال الإشعار لتفعيل الباقة فوراً 🚀',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-              onPressed: _isUploadingReceipt ? null : _submitReceipt,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ==============================================================================
-// 14. شاشة التفاوض والدردشة الحقيقية (FullChatNegotiationScreen)
+// 13. غرفة المحادثة والتفاوض الحي (FullChatNegotiationScreen)
 // ==============================================================================
 class FullChatNegotiationScreen extends StatefulWidget {
   final String adId;
@@ -6657,7 +6362,7 @@ class FullChatNegotiationScreen extends StatefulWidget {
 
   const FullChatNegotiationScreen({
     Key? key,
-    this.adId = '',
+    required this.adId,
     required this.partnerName,
     required this.productTitle,
     required this.initialPrice,
@@ -6672,63 +6377,39 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
   final AppStateManager _manager = AppStateManager();
   final TextEditingController _msgController = TextEditingController();
   final List<ChatMessage> _messages = [];
-  bool _isLoadingMessages = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchLiveChatMessages();
+    _fetchChatMessages();
   }
 
-  @override
-  void dispose() {
-    _msgController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fetchLiveChatMessages() async {
-    setState(() => _isLoadingMessages = true);
+  Future<void> _fetchChatMessages() async {
     try {
       final res = await Supabase.instance.client
           .from('chat_messages')
           .select()
+          .eq('ad_id', widget.adId)
           .order('created_at', ascending: true)
           .timeout(const Duration(seconds: 8));
 
-      if (res is List && res.isNotEmpty && mounted) {
+      if (res is List && mounted) {
         setState(() {
           _messages.clear();
-          _messages.addAll(res.map((r) => ChatMessage.fromMap(
-              r as Map<String, dynamic>, _manager.currentUserId)));
-        });
-      } else if (mounted) {
-        setState(() {
-          _messages.add(
-            ChatMessage(
-              id: 'msg-init',
-              adId: widget.adId,
-              senderId: _manager.currentUserId,
-              senderName: _manager.currentUserName,
-              senderEmail: _manager.currentUserEmail,
-              message:
-                  'مرحباً، أود بدء التفاوض حول "${widget.productTitle}" بسعر \$${widget.initialPrice.toStringAsFixed(0)}.',
-              timestamp: DateTime.now(),
-              isMe: true,
-              offerAmount: widget.initialPrice,
-            ),
-          );
+          _messages.addAll(
+              res.map((r) => ChatMessage.fromMap(r, _manager.currentUserId)));
         });
       }
-    } catch (e) {
-      debugPrint('Error fetching chat messages: $e');
+    } catch (_) {
     } finally {
-      if (mounted) setState(() => _isLoadingMessages = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _sendMessage() async {
-    final txt = _msgController.text.trim();
-    if (txt.isEmpty) return;
+  Future<void> _sendMessage({double? offer}) async {
+    final text = _msgController.text.trim();
+    if (text.isEmpty && offer == null) return;
 
     final newMsg = ChatMessage(
       id: 'msg-${DateTime.now().millisecondsSinceEpoch}',
@@ -6736,9 +6417,10 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
       senderId: _manager.currentUserId,
       senderName: _manager.currentUserName,
       senderEmail: _manager.currentUserEmail,
-      message: txt,
+      message: offer != null ? 'عرض سعر مقترح: \$$offer' : text,
       timestamp: DateTime.now(),
       isMe: true,
+      offerAmount: offer,
     );
 
     setState(() {
@@ -6750,10 +6432,47 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
       await Supabase.instance.client
           .from('chat_messages')
           .insert(newMsg.toMap())
-          .timeout(const Duration(seconds: 8));
-    } catch (e) {
-      debugPrint('Error inserting chat message: $e');
-    }
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
+  }
+
+  void _showMakeOfferDialog() {
+    final offerCtrl = TextEditingController(
+        text: widget.initialPrice > 0
+            ? '${(widget.initialPrice * 0.9).toStringAsFixed(0)}'
+            : '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('تقديم عرض سعر وتفاوض 🤝'),
+        content: TextField(
+          controller: offerCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+              labelText: 'قيمة العرض بالدولار (\$)',
+              border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
+            onPressed: () {
+              final val = double.tryParse(offerCtrl.text.trim());
+              if (val != null) {
+                Navigator.pop(ctx);
+                _sendMessage(offer: val);
+              }
+            },
+            child: const Text('إرسال العرض',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -6761,78 +6480,95 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: _manager.appBarColor,
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+            onPressed: () => Navigator.pop(context)),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.partnerName,
-                style:
-                    const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold)),
             Text(widget.productTitle,
-                style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                style: TextStyle(color: _manager.secondaryColor, fontSize: 10),
+                maxLines: 1),
           ],
         ),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.local_offer,
+                color: Colors.amberAccent, size: 16),
+            label: const Text('عرض سعر',
+                style: TextStyle(
+                    color: Colors.amberAccent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11)),
+            onPressed: _showMakeOfferDialog,
+          ),
+        ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: _isLoadingMessages
-                ? Center(
-                    child:
-                        CircularProgressIndicator(color: _manager.primaryColor))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _messages.length,
-                    itemBuilder: (ctx, idx) {
-                      final msg = _messages[idx];
-                      return Align(
-                        alignment: msg.isMe
-                            ? Alignment.centerLeft
-                            : Alignment.centerRight,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: msg.isMe
-                                ? _manager.primaryColor.withOpacity(0.15)
-                                : Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(msg.message,
-                                  style: const TextStyle(fontSize: 14)),
-                              const SizedBox(height: 4),
-                              Text(
-                                  '${msg.timestamp.hour}:${msg.timestamp.minute.toString().padLeft(2, "0")}',
-                                  style: const TextStyle(
-                                      fontSize: 10, color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty
+                    ? const Center(
+                        child: Text('ابدأ محادثتك وتفاوض على السعر مباشرة! ✨',
+                            style: TextStyle(color: Colors.grey)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(14),
+                        itemCount: _messages.length,
+                        itemBuilder: (ctx, idx) {
+                          final msg = _messages[idx];
+                          final isMe = msg.isMe;
+
+                          return Align(
+                            alignment: isMe
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isMe
+                                    ? _manager.primaryColor
+                                    : Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                msg.message,
+                                style: TextStyle(
+                                    color: isMe ? Colors.white : Colors.black87,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
           ),
           Container(
-            padding: const EdgeInsets.all(8),
-            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: Colors.white, boxShadow: const [
+              BoxShadow(color: Colors.black12, blurRadius: 4)
+            ]),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _msgController,
                     decoration: const InputDecoration(
-                        hintText: 'اكتب رسالتك أو قدم عرض سعر جديد...',
-                        border: OutlineInputBorder()),
+                      hintText: 'اكتب رسالتك للبائع...',
+                      border: InputBorder.none,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
                 IconButton(
-                  style: IconButton.styleFrom(
-                      backgroundColor: _manager.buttonColor),
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: _sendMessage,
+                  icon: Icon(Icons.send, color: _manager.primaryColor),
+                  onPressed: () => _sendMessage(),
                 ),
               ],
             ),
@@ -6844,7 +6580,7 @@ class _FullChatNegotiationScreenState extends State<FullChatNegotiationScreen> {
 }
 
 // ==============================================================================
-// 15. شاشة باقات وترقيات VIP الذهبية (FullSubscriptionPlansScreen)
+// 14. شاشة باقات الاشتراك والترقية VIP (FullSubscriptionPlansScreen)
 // ==============================================================================
 class FullSubscriptionPlansScreen extends StatelessWidget {
   const FullSubscriptionPlansScreen({Key? key}) : super(key: key);
@@ -6856,148 +6592,118 @@ class FullSubscriptionPlansScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: manager.appBarColor,
-        title: const Text('باقات وترقيات VIP 👑',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('باقات الاشتراك والترقية VIP 👑',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold)),
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+            onPressed: () => Navigator.pop(context)),
       ),
-      body: ListView(
+      body: ListView.builder(
         padding: const EdgeInsets.all(16),
-        children: manager.plans.map((plan) {
-          final isVip = plan.id == 'plan_vip';
-          return Container(
+        itemCount: manager.plans.length,
+        itemBuilder: (ctx, idx) {
+          final plan = manager.plans[idx];
+          final isVip = plan.id.contains('vip');
+
+          return Card(
             margin: const EdgeInsets.only(bottom: 16),
-            child: Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                    color:
-                        isVip ? manager.secondaryColor : Colors.grey.shade300,
-                    width: 2),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(plan.name,
-                            style: TextStyle(
-                                color:
-                                    isVip ? manager.primaryColor : Colors.black,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold)),
-                        if (isVip)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                                color: manager.secondaryColor,
-                                borderRadius: BorderRadius.circular(6)),
-                            child: const Text('الأكثر طلباً ⭐',
-                                style: TextStyle(
-                                    fontSize: 11, fontWeight: FontWeight.bold)),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                        '${plan.priceSyp.toStringAsFixed(0)} ل.س / ${plan.durationText}',
-                        style: TextStyle(
-                            color: isVip ? manager.secondaryColor : Colors.grey,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: Colors.blueGrey.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4)),
-                      child: Text('الحالة: ${plan.statusConditionText}',
-                          style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blueGrey)),
-                    ),
-                    const SizedBox(height: 12),
-                    ...plan.customFeatures
-                        .map((feat) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 3),
-                              child: Row(
-                                children: [
-                                  Icon(feat.icon,
-                                      color: isVip
-                                          ? manager.primaryColor
-                                          : Colors.grey,
-                                      size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(feat.text,
-                                      style: const TextStyle(
-                                          fontSize: 13, color: Colors.black87)),
-                                ],
-                              ),
-                            ))
-                        .toList(),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: isVip
-                                ? manager.buttonColor
-                                : Colors.grey.shade300),
-                        onPressed: () async {
-                          manager.currentUserPlanId = plan.id;
-                          manager.notifyListeners();
-                          if (manager.isLoggedIn &&
-                              manager.currentUserId.isNotEmpty) {
-                            try {
-                              await Supabase.instance.client
-                                  .from('users_profiles')
-                                  .update({
-                                    'plan_id': plan.id,
-                                  })
-                                  .eq('id', manager.currentUserId)
-                                  .timeout(const Duration(seconds: 8));
-                            } catch (e) {
-                              debugPrint('Error updating user plan: $e');
-                            }
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content:
-                                    Text('🎉 تم اختيار ${plan.name} بنجاح!')),
-                          );
-                          Navigator.pop(context);
-                        },
-                        child: Text(
-                          isVip
-                              ? 'الترقية الفورية عبر سيريتل/MTN كاش 💳'
-                              : 'اختيار هذه الباقة',
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: isVip
+                  ? BorderSide(color: manager.secondaryColor, width: 2)
+                  : BorderSide.none,
+            ),
+            elevation: isVip ? 4 : 1.5,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(plan.name,
                           style: TextStyle(
-                              color: isVip ? Colors.white : Colors.black87,
-                              fontWeight: FontWeight.bold),
-                        ),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isVip
+                                  ? manager.secondaryColor
+                                  : manager.primaryColor)),
+                      Text(
+                          plan.priceSyp > 0
+                              ? '${plan.priceSyp.toStringAsFixed(0)} ل.س'
+                              : 'مجاناً',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(plan.durationText,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  const Divider(height: 20),
+                  ...plan.customFeatures.map((f) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Icon(f.icon,
+                              color: isVip
+                                  ? manager.secondaryColor
+                                  : manager.primaryColor,
+                              size: 18),
+                          const SizedBox(width: 8),
+                          Text(f.text,
+                              style: const TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isVip
+                            ? manager.secondaryColor
+                            : manager.buttonColor,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text('🎉 تم اختيار ${plan.name} بنجاح!'),
+                              backgroundColor: manager.primaryColor),
+                        );
+                      },
+                      child: Text(
+                        isVip ? 'ترقية الحساب الآن 👑' : 'مفعلة بحسابك',
+                        style: TextStyle(
+                            color: isVip ? manager.primaryColor : Colors.white,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );
-        }).toList(),
+        },
       ),
     );
   }
 }
 
 // ==============================================================================
-// 16. غرفة العمليات وإدارة المشرفين وصندوق الاقتراحات (FullAdminPanelScreen)
+// 15. غرفة العمليات ولوحة تحكم المشرفين الكبرى (FullAdminPanelScreen)
 // ==============================================================================
 class FullAdminPanelScreen extends StatefulWidget {
   final int initialTab;
-
   const FullAdminPanelScreen({Key? key, this.initialTab = 0}) : super(key: key);
 
   @override
@@ -7009,532 +6715,238 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
   final AppStateManager _manager = AppStateManager();
   late TabController _tabController;
 
-  late TextEditingController _titleController;
-  late TextEditingController _subtitleController;
-  late TextEditingController _maintMsgController;
-  late TextEditingController _disclaimerController;
-
-  // تعديل وإضافة الأقسام والأفرع
-  final TextEditingController _categoryNameController = TextEditingController();
-  final TextEditingController _subCategoryInputController =
-      TextEditingController();
-  final double _catRadius = 12.0;
-  IconData _selectedCatIcon = Icons.category;
-  Color _selectedCatBgColor = const Color(0xFF0F5132);
-  final Color _selectedCatTextColor = Colors.white;
-
-  final TextEditingController _newsInputController = TextEditingController();
-
-  // غرفة عمليات البنرات والإعلانات اليدوية (مفصولة تماماً عن الدفع)
-  final TextEditingController _bannerTitleController = TextEditingController();
-  final TextEditingController _bannerSubController = TextEditingController();
-  final TextEditingController _bannerUrlController = TextEditingController();
-  final TextEditingController _bannerPhoneController = TextEditingController();
-  final TextEditingController _bannerWhatsappController =
-      TextEditingController();
-  final TextEditingController _bannerTelegramController =
-      TextEditingController();
-  String _bannerPosition = 'top';
-  Uint8List? _selectedBannerBytes;
-  bool _isPublishingBanner = false;
-  final ImagePicker _picker = ImagePicker();
-
-  // إضافة مشرف جديد
-  final TextEditingController _newModEmailController = TextEditingController();
-  final TextEditingController _newModNameController = TextEditingController();
-  final TextEditingController _newModPhoneController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
-    // 8 تبويبات كاملة شاملة صندوق الاقتراحات والملاحظات
     _tabController =
-        TabController(length: 8, vsync: this, initialIndex: widget.initialTab);
-    _titleController = TextEditingController(text: _manager.appTitle);
-    _subtitleController = TextEditingController(text: _manager.appSubtitle);
-    _maintMsgController =
-        TextEditingController(text: _manager.maintenanceMessage);
-    _disclaimerController =
-        TextEditingController(text: _manager.disclaimerText);
+        TabController(length: 9, vsync: this, initialIndex: widget.initialTab);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _titleController.dispose();
-    _subtitleController.dispose();
-    _maintMsgController.dispose();
-    _disclaimerController.dispose();
-    _categoryNameController.dispose();
-    _subCategoryInputController.dispose();
-    _newsInputController.dispose();
-    _bannerTitleController.dispose();
-    _bannerSubController.dispose();
-    _bannerUrlController.dispose();
-    _bannerPhoneController.dispose();
-    _bannerWhatsappController.dispose();
-    _bannerTelegramController.dispose();
-    _newModEmailController.dispose();
-    _newModNameController.dispose();
-    _newModPhoneController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickBannerImage() async {
-    final img = await _picker.pickImage(
-        source: ImageSource.gallery, imageQuality: 75, maxWidth: 1024);
-    if (img != null) {
-      final bytes = await img.readAsBytes();
-      setState(() => _selectedBannerBytes = bytes);
-    }
-  }
-
-  Future<void> _publishBannerToSupabase() async {
-    final title = _bannerTitleController.text.trim();
-    if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('يرجى كتابة عنوان البنر')));
-      return;
-    }
-
-    setState(() => _isPublishingBanner = true);
-    String finalImageUrl =
-        'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=600';
-
-    try {
-      if (_selectedBannerBytes != null) {
-        final fileName = 'banner_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        await Supabase.instance.client.storage
-            .from(kStorageBucketBanners)
-            .uploadBinary(
-              fileName,
-              _selectedBannerBytes!,
-              fileOptions:
-                  const FileOptions(contentType: 'image/jpeg', upsert: true),
-            )
-            .timeout(const Duration(seconds: 12));
-        finalImageUrl = Supabase.instance.client.storage
-            .from(kStorageBucketBanners)
-            .getPublicUrl(fileName);
-      }
-
-      final newBannerData = {
-        'title': title,
-        'subtitle': _bannerSubController.text.trim(),
-        'image_url': finalImageUrl,
-        'target_url': _bannerUrlController.text.trim(),
-        'phone': _bannerPhoneController.text.trim(),
-        'whatsapp': _bannerWhatsappController.text.trim(),
-        'telegram': _bannerTelegramController.text.trim(),
-        'position': _bannerPosition,
-      };
-
-      final res = await Supabase.instance.client
-          .from('banners')
-          .insert(newBannerData)
-          .select()
-          .single()
-          .timeout(const Duration(seconds: 8));
-
-      final newBanner = BannerItem.fromMap(res);
-
-      if (mounted) {
-        setState(() {
-          _manager.banners.add(newBanner);
-          _selectedBannerBytes = null;
-          _bannerTitleController.clear();
-          _bannerSubController.clear();
-          _bannerUrlController.clear();
-          _bannerPhoneController.clear();
-          _bannerWhatsappController.clear();
-          _bannerTelegramController.clear();
-        });
-        _manager.notifyListeners();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('🚀 تم نشر البنر وتثبيته سحابياً بنجاح!')),
-        );
-      }
-    } catch (e) {
-      debugPrint('Banner publish notice: $e');
-    } finally {
-      if (mounted) setState(() => _isPublishingBanner = false);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_manager.isModerator) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('غير مصرح')),
-        body: const Center(
-            child: Text('⚠️ ليس لديك صلاحيات للوصول إلى غرفة العمليات.')),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF991B1B),
-        title: const Text('غرفة العمليات ولوحة تحكم المشرفين 🛡️',
+        backgroundColor: const Color(0xFF0F172A),
+        title: const Text('غرفة العمليات والإشراف المركزي 🛡️',
             style: TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 15)),
+                fontSize: 15,
+                fontWeight: FontWeight.bold)),
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+            onPressed: () => Navigator.pop(context)),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           indicatorColor: _manager.secondaryColor,
-          labelColor: Colors.white,
+          labelColor: _manager.secondaryColor,
           unselectedLabelColor: Colors.white70,
           tabs: const [
-            Tab(icon: Icon(Icons.dashboard), text: 'نظرة عامة والتحكم'),
-            Tab(icon: Icon(Icons.rule), text: 'مراجعة الإعلانات'),
-            Tab(icon: Icon(Icons.lightbulb), text: 'صندوق الاقتراحات 💡'),
-            Tab(icon: Icon(Icons.manage_accounts), text: 'إدارة المشرفين'),
-            Tab(icon: Icon(Icons.category), text: 'الأقسام والأفرع'),
-            Tab(icon: Icon(Icons.report), text: 'البلاغات والشكاوى'),
-            Tab(icon: Icon(Icons.workspace_premium), text: 'الخطط والباقات'),
-            Tab(icon: Icon(Icons.campaign), text: 'غرفة البنرات والأخبار'),
+            Tab(icon: Icon(Icons.palette), text: 'ألوان النصوص والتطبيق 🎨'),
+            Tab(icon: Icon(Icons.fact_check), text: 'موافقة الإعلانات ⏳'),
+            Tab(icon: Icon(Icons.view_carousel), text: 'غرفة البنرات 🖼️'),
+            Tab(icon: Icon(Icons.lightbulb), text: 'صوتك مسموع 💡'),
+            Tab(icon: Icon(Icons.category), text: 'الأقسام والفئات 📁'),
+            Tab(icon: Icon(Icons.campaign), text: 'شريط الأخبار 📢'),
+            Tab(icon: Icon(Icons.shield), text: 'المشرفين والصلاحيات 👥'),
+            Tab(icon: Icon(Icons.report), text: 'البلاغات 🚩'),
+            Tab(icon: Icon(Icons.settings), text: 'الإعدادات العامة ⚙️'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildExecutiveOverviewTab(),
-          _buildReviewAdsTab(),
-          _buildFeedbacksTab(), // تبويب صندوق الاقتراحات والملاحظات الجديد
-          _buildManageModeratorsTab(),
-          _buildManageCategoriesTab(),
-          _buildReviewReportsTab(),
-          _buildManagePlansTab(),
-          _buildNewsAndBannersTab(),
+          _buildTypographyAndColorsTab(),
+          _buildAdsApprovalTab(),
+          _buildBannersManagerTab(),
+          _buildFeedbacksReviewTab(),
+          _buildCategoriesManagerTab(),
+          _buildNewsTickerTab(),
+          _buildModeratorsTab(),
+          _buildReportsTab(),
+          _buildGeneralSettingsTab(),
         ],
       ),
     );
   }
 
-  Widget _buildExecutiveOverviewTab() {
-    final pendingCount =
-        _manager.ads.where((a) => a.status == 'pending').length;
-
+  // 🎨 تبويب التحكم الكامل بألوان النصوص لكامل التطبيق
+  Widget _buildTypographyAndColorsTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          children: [
-            Expanded(
-                child: _buildMetricCard(
-                    'إجمالي الإعلانات',
-                    '${_manager.ads.length}',
-                    Icons.list_alt,
-                    _manager.primaryColor)),
-            const SizedBox(width: 10),
-            Expanded(
-                child: _buildMetricCard('بانتظار الموافقة', '$pendingCount',
-                    Icons.pending_actions, Colors.orange.shade800)),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-                child: _buildMetricCard(
-                    'الاقتراحات الواردة',
-                    '${_manager.feedbacks.length}',
-                    Icons.lightbulb,
-                    _manager.secondaryColor)),
-            const SizedBox(width: 10),
-            Expanded(
-                child: _buildMetricCard(
-                    'حالة النظام',
-                    _manager.isMaintenanceMode ? 'صيانة ⏳' : 'متاح للجميع ✅',
-                    Icons.security,
-                    _manager.isMaintenanceMode ? Colors.red : Colors.green)),
-          ],
-        ),
-        const SizedBox(height: 20),
-        const Text('إعدادات الهوية والتحكم الصوتي ووضع الصيانة:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 10),
-        Card(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                        labelText: 'اسم التطبيق الرئيسي',
-                        border: OutlineInputBorder())),
-                const SizedBox(height: 10),
-                TextField(
-                    controller: _subtitleController,
-                    decoration: const InputDecoration(
-                        labelText: 'العنوان الفرعي',
-                        border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  title: const Text('تفعيل "وضع الصيانة" الفوري'),
-                  subtitle:
-                      const Text('إغلاق المنصة للزوار وإتاحتها للمشرفين فقط'),
-                  value: _manager.isMaintenanceMode,
-                  activeColor: Colors.red,
-                  onChanged: (val) {
-                    setState(() => _manager.isMaintenanceMode = val);
-                    _manager.notifyListeners();
-                  },
-                ),
-                if (_manager.isMaintenanceMode) ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                      controller: _maintMsgController,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                          labelText: 'رسالة الصيانة',
-                          border: OutlineInputBorder())),
-                ],
-                const SizedBox(height: 12),
-                TextField(
-                    controller: _disclaimerController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                        labelText: 'نص إخلاء المسؤولية وحقوق النشر',
-                        border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  title: const Text('تفعيل الإملاء والتسجيل الصوتي (STT) 🎙️'),
-                  subtitle: const Text('تحويل الصوت لكتابة فورية داخل الحقول'),
-                  value: _manager.isVoiceTypingEnabled,
-                  activeColor: _manager.primaryColor,
-                  onChanged: (val) {
-                    setState(() => _manager.isVoiceTypingEnabled = val);
-                    _manager.notifyListeners();
-                  },
-                ),
-                SwitchListTile(
-                  title: const Text('تفعيل القراءة الصوتية (TTS) 🔊'),
-                  subtitle:
-                      const Text('قراءة الإعلانات صوتياً لمن لا يجيد القراءة'),
-                  value: _manager.isTextToSpeechEnabled,
-                  activeColor: _manager.primaryColor,
-                  onChanged: (val) {
-                    setState(() => _manager.isTextToSpeechEnabled = val);
-                    _manager.notifyListeners();
-                  },
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: _manager.buttonColor),
-                    onPressed: () async {
-                      await _manager.updateAppConfig(
-                        title: _titleController.text.trim(),
-                        subtitle: _subtitleController.text.trim(),
-                        maintMsg: _maintMsgController.text.trim(),
-                        disclaimer: _disclaimerController.text.trim(),
-                      );
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('✨ تم حفظ الإعدادات سحابياً بنجاح!')));
-                      }
-                    },
-                    child: const Text('حفظ التعديلات سحابياً 💾',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _manager.primaryColor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _manager.primaryColor.withOpacity(0.3)),
           ),
+          child: Row(
+            children: [
+              Icon(Icons.format_color_text,
+                  color: _manager.primaryColor, size: 26),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'تحكم بألوان نصوص وعناوين التطبيق وتطبيقها سحابياً على جميع المستخدمين فوراً.',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildColorPickerRow('لون العناوين الرئيسية:', _manager.titleTextColor,
+            (c) => _manager.updateAppConfig(titleColor: c)),
+        _buildColorPickerRow('لون النصوص والوصف:', _manager.bodyTextColor,
+            (c) => _manager.updateAppConfig(bodyColor: c)),
+        _buildColorPickerRow('لون سعر الدولار (\$):', _manager.priceUsdColor,
+            (c) => _manager.updateAppConfig(priceUsdCol: c)),
+        _buildColorPickerRow('لون سعر الليرة السورية:', _manager.priceSypColor,
+            (c) => _manager.updateAppConfig(priceSypCol: c)),
+        _buildColorPickerRow(
+            'لون الموقع والمحافظات:',
+            _manager.locationTextColor,
+            (c) => _manager.updateAppConfig(locationColor: c)),
+        const Divider(height: 30),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+              backgroundColor: _manager.buttonColor,
+              padding: const EdgeInsets.symmetric(vertical: 12)),
+          icon: const Icon(Icons.restore, color: Colors.white),
+          label: const Text('إعادة ضبط ألوان النصوص الافتراضية',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          onPressed: () {
+            _manager.updateAppConfig(
+              titleColor: const Color(0xFF0F172A),
+              bodyColor: const Color(0xFF334155),
+              priceUsdCol: const Color(0xFF0F5132),
+              priceSypCol: const Color(0xFF475569),
+              locationColor: const Color(0xFF64748B),
+            );
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('تم استعادة الألوان الافتراضية بنجاح.')));
+          },
         ),
       ],
     );
   }
 
-  Widget _buildMetricCard(
-      String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
+  Widget _buildColorPickerRow(
+      String title, Color currentColor, Function(Color) onColorSelected) {
+    final availableColors = [
+      const Color(0xFF0F172A), // أسود فحمي
+      const Color(0xFF0F5132), // أخضر ملكي
+      const Color(0xFFD4AF37), // ذهبي
+      const Color(0xFF1E88E5), // أزرق
+      const Color(0xFFE53935), // أحمر
+      const Color(0xFF8E24AA), // بنفسجي
+      const Color(0xFF475569), // رمادي داكن
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          CircleAvatar(
-              backgroundColor: color,
-              child: Icon(icon, color: Colors.white, size: 20)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text(value,
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: color)),
-              ],
-            ),
+          Text(title,
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Row(
+            children: availableColors.map((col) {
+              final isSel = currentColor.value == col.value;
+              return GestureDetector(
+                onTap: () {
+                  onColorSelected(col);
+                  setState(() {});
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: col,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: isSel ? Colors.amberAccent : Colors.black26,
+                        width: isSel ? 2.5 : 1),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildReviewAdsTab() {
-    final pendingAds =
-        _manager.ads.where((a) => a.status == 'pending').toList();
+  // ⏳ تبويب موافقة الإعلانات
+  Widget _buildAdsApprovalTab() {
+    final pending = _manager.ads.where((a) => a.status == 'pending').toList();
 
-    if (pendingAds.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.check_circle_outline, size: 60, color: Colors.green),
-            SizedBox(height: 12),
-            Text('لا توجد إعلانات معلقة بانتظار الموافقة.',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: Colors.grey)),
-          ],
-        ),
-      );
+    if (pending.isEmpty) {
+      return const Center(
+          child: Text('🎉 لا توجد إعلانات معلقة بانتظار المراجعة حالياً.',
+              style: TextStyle(fontWeight: FontWeight.bold)));
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: pendingAds.length,
+      itemCount: pending.length,
       itemBuilder: (ctx, idx) {
-        final ad = pendingAds[idx];
+        final ad = pending[idx];
         return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          margin: const EdgeInsets.only(bottom: 10),
+          child: ListTile(
+            leading: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                    ad.imageUrls.isNotEmpty ? ad.imageUrls.first : '',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover)),
+            title: Text(ad.title,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('${ad.governorate} - ${ad.publisherName}'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                          ad.imageUrls.isNotEmpty ? ad.imageUrls.first : '',
-                          width: 65,
-                          height: 65,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                              width: 65,
-                              height: 65,
-                              color: Colors.grey.shade300,
-                              child: const Icon(Icons.image))),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(ad.title,
-                              maxLines: 1,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14)),
-                          const SizedBox(height: 4),
-                          Text(
-                              'المعلن: ${ad.publisherName} (${ad.publisherPhone})',
-                              style: const TextStyle(
-                                  fontSize: 11, color: Colors.grey)),
-                          const SizedBox(height: 2),
-                          Text(
-                              'السعر: ${ad.priceUsd != null ? "\$${ad.priceUsd}" : "${ad.priceSyp} ل.س"}',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: _manager.primaryColor,
-                                  fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ],
+                IconButton(
+                  icon: const Icon(Icons.check_circle, color: Colors.green),
+                  onPressed: () async {
+                    final updated = ad.copyWith(status: 'approved');
+                    setState(() {
+                      final i = _manager.ads.indexWhere((x) => x.id == ad.id);
+                      if (i != -1) _manager.ads[i] = updated;
+                    });
+                    try {
+                      await Supabase.instance.client
+                          .from('ads')
+                          .update({'status': 'approved'}).eq('id', ad.id);
+                    } catch (_) {}
+                  },
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade700),
-                        icon:
-                            const Icon(Icons.check_circle, color: Colors.white),
-                        label: const Text('موافقة ونشر ✔',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold)),
-                        onPressed: () async {
-                          final adIdx =
-                              _manager.ads.indexWhere((x) => x.id == ad.id);
-                          if (adIdx != -1) {
-                            setState(() => _manager.ads[adIdx] =
-                                ad.copyWith(status: 'approved'));
-                            _manager.notifyListeners();
-                          }
-                          try {
-                            await Supabase.instance.client
-                                .from('ads')
-                                .update({'status': 'approved'})
-                                .eq('id', ad.id)
-                                .timeout(const Duration(seconds: 8));
-                          } catch (e) {
-                            debugPrint('Review ad note: $e');
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade700),
-                        icon: const Icon(Icons.cancel, color: Colors.white),
-                        label: const Text('رفض ✖',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold)),
-                        onPressed: () async {
-                          final adIdx =
-                              _manager.ads.indexWhere((x) => x.id == ad.id);
-                          if (adIdx != -1) {
-                            setState(() => _manager.ads[adIdx] =
-                                ad.copyWith(status: 'rejected'));
-                            _manager.notifyListeners();
-                          }
-                          try {
-                            await Supabase.instance.client
-                                .from('ads')
-                                .update({'status': 'rejected'})
-                                .eq('id', ad.id)
-                                .timeout(const Duration(seconds: 8));
-                          } catch (e) {
-                            debugPrint('Review ad note: $e');
-                          }
-                        },
-                      ),
-                    ),
-                  ],
+                IconButton(
+                  icon: const Icon(Icons.cancel, color: Colors.red),
+                  onPressed: () async {
+                    setState(
+                        () => _manager.ads.removeWhere((x) => x.id == ad.id));
+                    try {
+                      await Supabase.instance.client
+                          .from('ads')
+                          .delete()
+                          .eq('id', ad.id);
+                    } catch (_) {}
+                  },
                 ),
               ],
             ),
@@ -7544,28 +6956,66 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     );
   }
 
-  /// 💡 تبويب صندوق الاقتراحات والملاحظات الواردة من المستخدمين مع إمكانية الرد الفوري عبر الواتساب
-  Widget _buildFeedbacksTab() {
-    if (_manager.feedbacks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.lightbulb_outline,
-                size: 60, color: _manager.secondaryColor),
-            const SizedBox(height: 12),
-            const Text('صندوق الاقتراحات فارغ حالياً.',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Colors.grey)),
-            const SizedBox(height: 6),
-            const Text(
-                'ستظهر هنا جميع الأفكار والملاحظات التي يرسلها المستخدمون.',
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
+  // 🖼️ تبويب إدارة البنرات مع التحكم بالسرعة
+  Widget _buildBannersManagerTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: _manager.secondaryColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  '⏱️ سرعة تبديل البنر تلقائياً: ${_manager.bannerIntervalSeconds} ثواني',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
+              Slider(
+                value: _manager.bannerIntervalSeconds.toDouble(),
+                min: 2.0,
+                max: 10.0,
+                divisions: 8,
+                label: '${_manager.bannerIntervalSeconds} ثواني',
+                onChanged: (val) =>
+                    _manager.updateAppConfig(bannerSeconds: val.toInt()),
+              ),
+            ],
+          ),
         ),
-      );
+        const SizedBox(height: 14),
+        ..._manager.banners.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final b = entry.value;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.network(b.imageUrl,
+                      width: 60, height: 40, fit: BoxFit.cover)),
+              title: Text(b.title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 12)),
+              subtitle: Text(b.subtitle, style: const TextStyle(fontSize: 10)),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                onPressed: () => setState(() => _manager.banners.removeAt(idx)),
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  // 💡 تبويب مراجعة اقتراحات وملاحظات المستخدمين
+  Widget _buildFeedbacksReviewTab() {
+    if (_manager.feedbacks.isEmpty) {
+      return const Center(
+          child: Text('لا توجد اقتراحات جديدة في الصندوق حالياً.'));
     }
 
     return ListView.builder(
@@ -7573,522 +7023,8 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
       itemCount: _manager.feedbacks.length,
       itemBuilder: (ctx, idx) {
         final fb = _manager.feedbacks[idx];
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                          color: _manager.primaryColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6)),
-                      child: Text(fb.type,
-                          style: TextStyle(
-                              color: _manager.primaryColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11)),
-                    ),
-                    Text(
-                        '${fb.createdAt.year}/${fb.createdAt.month}/${fb.createdAt.day}',
-                        style:
-                            const TextStyle(fontSize: 11, color: Colors.grey)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(fb.content,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.5,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.person, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text('المرسل: ${fb.userName}',
-                        style:
-                            const TextStyle(fontSize: 11, color: Colors.grey)),
-                    if (fb.userContact.isNotEmpty) ...[
-                      const SizedBox(width: 10),
-                      Text('(${fb.userContact})',
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: _manager.primaryColor,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ],
-                ),
-                if (fb.screenshotUrl != null &&
-                    fb.screenshotUrl!.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (c) => FullScreenImageViewer(
-                              imageUrls: [fb.screenshotUrl!]),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.image, size: 16, color: Colors.blue),
-                          SizedBox(width: 4),
-                          Text('عرض لقطة الشاشة المرفقة 🖼️',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (fb.userContact.isNotEmpty &&
-                        PhoneHelper.isValidPhone(fb.userContact))
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF25D366),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6)),
-                        icon: const Icon(Icons.chat,
-                            color: Colors.white, size: 16),
-                        label: const Text('رد عبر الواتساب',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold)),
-                        onPressed: () async {
-                          final clean =
-                              PhoneHelper.formatForWhatsapp(fb.userContact);
-                          final msg = Uri.encodeComponent(
-                              'أهلاً بك أخي ${fb.userName}، نشكرك من القلب على اقتراحك وملاحظتك القيمة لتطوير سوق سوريا الشامل 2028:');
-                          final uri =
-                              Uri.parse('https://wa.me/$clean?text=$msg');
-                          try {
-                            if (await canLaunchUrl(uri))
-                              await launchUrl(uri,
-                                  mode: LaunchMode.externalApplication);
-                          } catch (_) {}
-                        },
-                      ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.red, size: 20),
-                      tooltip: 'حذف الاقتراح',
-                      onPressed: () async {
-                        setState(() => _manager.feedbacks.removeAt(idx));
-                        _manager.notifyListeners();
-                        try {
-                          await Supabase.instance.client
-                              .from('app_feedbacks')
-                              .delete()
-                              .eq('id', fb.id);
-                        } catch (_) {}
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// إدارة المشرفين وتوزيع الصلاحيات المخصصة (Super Admin Exclusive)
-  Widget _buildManageModeratorsTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text('إضافة مشرف وتعيين صلاحياته:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 10),
-        Card(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                TextField(
-                    controller: _newModNameController,
-                    decoration: const InputDecoration(
-                        labelText: 'اسم المشرف', border: OutlineInputBorder())),
-                const SizedBox(height: 8),
-                TextField(
-                    controller: _newModEmailController,
-                    decoration: const InputDecoration(
-                        labelText: 'البريد الإلكتروني للمشرف',
-                        border: OutlineInputBorder())),
-                const SizedBox(height: 8),
-                TextField(
-                    controller: _newModPhoneController,
-                    decoration: const InputDecoration(
-                        labelText: 'رقم الهاتف', border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: _manager.buttonColor),
-                  icon: const Icon(Icons.person_add, color: Colors.white),
-                  label: const Text('إضافة المشرف واعتماد صلاحياته',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: () {
-                    final email = _newModEmailController.text.trim();
-                    final name = _newModNameController.text.trim();
-                    if (email.isNotEmpty && name.isNotEmpty) {
-                      setState(() {
-                        _manager.registeredUsers.add(
-                          AdminUser(
-                            id: 'mod-${DateTime.now().millisecondsSinceEpoch}',
-                            name: name,
-                            email: email,
-                            phone: _newModPhoneController.text.trim(),
-                            role: 'moderator',
-                            permissions: AdminPermissions(
-                              canApproveAds: true,
-                              canDeleteAds: true,
-                              canManageCategories: false,
-                              canManageBanners: true,
-                              canManageNews: true,
-                              canViewReports: true,
-                            ),
-                          ),
-                        );
-                        _newModNameController.clear();
-                        _newModEmailController.clear();
-                        _newModPhoneController.clear();
-                      });
-                      _manager.notifyListeners();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text('✨ تمت إضافة المشرف $name بنجاح!')),
-                      );
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text('قائمة المشرفين وصلاحياتهم الفردية:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 8),
-        ..._manager.registeredUsers.map((user) {
-          final isSuper = user.role == 'super_admin';
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            child: ExpansionTile(
-              leading: CircleAvatar(
-                backgroundColor: isSuper ? Colors.amber : _manager.primaryColor,
-                child: Icon(isSuper ? Icons.admin_panel_settings : Icons.shield,
-                    color: Colors.white),
-              ),
-              title: Text('${user.name} (${isSuper ? "مسؤول عام" : "مشرف"})',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(user.email,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      SwitchListTile(
-                        title: const Text('الموافقة على الإعلانات المعلقة'),
-                        value: user.permissions.canApproveAds,
-                        onChanged: isSuper
-                            ? null
-                            : (val) => setState(
-                                () => user.permissions.canApproveAds = val),
-                      ),
-                      SwitchListTile(
-                        title: const Text('حذف الإعلانات المخالفة'),
-                        value: user.permissions.canDeleteAds,
-                        onChanged: isSuper
-                            ? null
-                            : (val) => setState(
-                                () => user.permissions.canDeleteAds = val),
-                      ),
-                      SwitchListTile(
-                        title: const Text('التحكم بالبانرات وغرفة العمليات'),
-                        value: user.permissions.canManageBanners,
-                        onChanged: isSuper
-                            ? null
-                            : (val) => setState(
-                                () => user.permissions.canManageBanners = val),
-                      ),
-                      SwitchListTile(
-                        title: const Text('إدارة الأقسام والأفرع'),
-                        value: user.permissions.canManageCategories,
-                        onChanged: isSuper
-                            ? null
-                            : (val) => setState(() =>
-                                user.permissions.canManageCategories = val),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ],
-    );
-  }
-
-  /// إدارة الأقسام وتعديلها في مكانها وإضافة الأفرع
-  Widget _buildManageCategoriesTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text('إضافة قسم جديد بأيقونة مخصصة:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 8),
-        TextField(
-            controller: _categoryNameController,
-            decoration: const InputDecoration(
-                hintText: 'اسم القسم الجديد...', border: OutlineInputBorder())),
-        const SizedBox(height: 10),
-        const Text('اختر أيقونة القسم الملونة:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _manager.availableIconsPool.map((item) {
-            final icon = item['icon'] as IconData;
-            final isSel = _selectedCatIcon == icon;
-            return ChoiceChip(
-              avatar: Icon(icon,
-                  size: 16,
-                  color: isSel ? Colors.white : (item['color'] as Color)),
-              label: Text(item['name'] as String,
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: isSel ? Colors.white : Colors.black87)),
-              selected: isSel,
-              selectedColor: _manager.primaryColor,
-              onSelected: (val) {
-                if (val) {
-                  setState(() {
-                    _selectedCatIcon = icon;
-                    _selectedCatBgColor = item['color'] as Color;
-                  });
-                }
-              },
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 10),
-        ElevatedButton.icon(
-          style:
-              ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
-          icon: const Icon(Icons.add, color: Colors.white),
-          label: const Text('إضافة القسم وحفظه سحابياً',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          onPressed: () async {
-            final name = _categoryNameController.text.trim();
-            if (name.isNotEmpty) {
-              final newCat = CategoryModel(
-                id: 'cat-${DateTime.now().millisecondsSinceEpoch}',
-                name: name,
-                iconData: _selectedCatIcon,
-                backgroundColor: _selectedCatBgColor,
-                textColor: _selectedCatTextColor,
-                borderRadiusValue: _catRadius,
-                subcategories: ['عام'],
-              );
-              setState(() {
-                _manager.categories.add(newCat);
-                _categoryNameController.clear();
-              });
-              _manager.notifyListeners();
-              try {
-                await Supabase.instance.client
-                    .from('categories')
-                    .insert(newCat.toMap())
-                    .timeout(const Duration(seconds: 8));
-              } catch (e) {
-                debugPrint('Category insert notice: $e');
-              }
-            }
-          },
-        ),
-        const SizedBox(height: 16),
-        const Divider(),
-        const Text('الأقسام الحالية (تعديل الاسم وإضافة الأفرع مباشرة):',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 10),
-        ..._manager.categories.asMap().entries.map((entry) {
-          final cat = entry.value;
-          final editController = TextEditingController(text: cat.name);
-          final subController = TextEditingController();
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            child: ExpansionTile(
-              leading: Icon(cat.iconData, color: cat.backgroundColor),
-              title: Text(cat.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('الأفرع: ${cat.subcategories.join(", ")}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: editController,
-                              decoration: const InputDecoration(
-                                  labelText: 'تعديل اسم القسم في مكانه',
-                                  border: OutlineInputBorder()),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: _manager.primaryColor),
-                            onPressed: () async {
-                              final updatedName = editController.text.trim();
-                              if (updatedName.isNotEmpty) {
-                                setState(() => cat.name = updatedName);
-                                _manager.notifyListeners();
-                                try {
-                                  await Supabase.instance.client
-                                      .from('categories')
-                                      .upsert(cat.toMap())
-                                      .timeout(const Duration(seconds: 8));
-                                } catch (_) {}
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(
-                                          'تم تعديل اسم القسم إلى $updatedName')),
-                                );
-                              }
-                            },
-                            child: const Text('حفظ',
-                                style: TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: subController,
-                              decoration: const InputDecoration(
-                                  hintText: 'إضافة فرع جديد للقسم...',
-                                  border: OutlineInputBorder()),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            style: IconButton.styleFrom(
-                                backgroundColor: _manager.buttonColor),
-                            icon: const Icon(Icons.add, color: Colors.white),
-                            onPressed: () async {
-                              final sub = subController.text.trim();
-                              if (sub.isNotEmpty) {
-                                setState(() => cat.subcategories.add(sub));
-                                _manager.notifyListeners();
-                                subController.clear();
-                                try {
-                                  await Supabase.instance.client
-                                      .from('categories')
-                                      .upsert(cat.toMap());
-                                } catch (_) {}
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        children: cat.subcategories.map((sub) {
-                          return Chip(
-                            label:
-                                Text(sub, style: const TextStyle(fontSize: 10)),
-                            deleteIcon: const Icon(Icons.close, size: 14),
-                            onDeleted: () {
-                              setState(() => cat.subcategories.remove(sub));
-                              _manager.notifyListeners();
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ],
-    );
-  }
-
-  Widget _buildReviewReportsTab() {
-    if (_manager.reports.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.verified_user, size: 60, color: Colors.green),
-            SizedBox(height: 12),
-            Text('سجل البلاغات نظيف، لا توجد شكاوى حالياً.',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: Colors.grey)),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: _manager.reports.length,
-      itemBuilder: (ctx, idx) {
-        final report = _manager.reports[idx];
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -8097,59 +7033,47 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('إعلان: ${report.adTitle}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(fb.userName,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6)),
-                      child: const Text('بلاغ مخالفة',
-                          style: TextStyle(
-                              color: Colors.red,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold)),
-                    ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: _manager.secondaryColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6)),
+                        child: Text(fb.type,
+                            style: const TextStyle(
+                                fontSize: 10, fontWeight: FontWeight.bold))),
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text('المبلغ: ${report.reporterName}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 4),
-                Text('السبب: ${report.reason}',
-                    style:
-                        const TextStyle(fontSize: 13, color: Colors.black87)),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.red, size: 16),
-                      label: const Text('حذف الإعلان المخالف فوراً',
-                          style: TextStyle(color: Colors.red, fontSize: 12)),
-                      onPressed: () async {
-                        try {
-                          await Supabase.instance.client
-                              .from('ads')
-                              .delete()
-                              .eq('id', report.adId);
-                          await Supabase.instance.client
-                              .from('ad_reports')
-                              .delete()
-                              .eq('id', report.id);
-                        } catch (_) {}
-                        setState(() {
-                          _manager.ads.removeWhere((a) => a.id == report.adId);
-                          _manager.reports.removeAt(idx);
-                        });
-                        _manager.notifyListeners();
-                      },
-                    ),
-                  ],
-                ),
+                Text(fb.content, style: const TextStyle(fontSize: 12)),
+                if (fb.screenshotUrl != null) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(fb.screenshotUrl!,
+                          height: 100, fit: BoxFit.cover)),
+                ],
+                const SizedBox(height: 8),
+                if (fb.userContact.isNotEmpty)
+                  TextButton.icon(
+                    icon: const Icon(Icons.chat,
+                        color: Color(0xFF25D366), size: 16),
+                    label: Text('الرد على ${fb.userContact} عبر الواتساب',
+                        style: const TextStyle(
+                            color: Color(0xFF25D366), fontSize: 11)),
+                    onPressed: () async {
+                      final clean =
+                          PhoneHelper.formatForWhatsapp(fb.userContact);
+                      final msg = Uri.encodeComponent(
+                          'مرحباً أخي ${fb.userName}، شكراً لملاحظتك بخصوص تطبيق سوق سوريا الشامل:');
+                      final uri = Uri.parse('https://wa.me/$clean?text=$msg');
+                      if (await canLaunchUrl(uri))
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
+                    },
+                  ),
               ],
             ),
           ),
@@ -8158,305 +7082,14 @@ class _FullAdminPanelScreenState extends State<FullAdminPanelScreen>
     );
   }
 
-  Widget _buildManagePlansTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text('إدارة الخطط والباقات:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 10),
-        ..._manager.plans.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final plan = entry.value;
-          final priceCtrl =
-              TextEditingController(text: plan.priceSyp.toStringAsFixed(0));
-          final conditionCtrl =
-              TextEditingController(text: plan.statusConditionText);
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ExpansionTile(
-              title: Text(
-                  '${plan.name} (${plan.priceSyp.toStringAsFixed(0)} ل.س)',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: priceCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                            labelText: 'سعر الباقة بالليرة السورية',
-                            border: OutlineInputBorder()),
-                        onChanged: (val) async {
-                          final p = double.tryParse(val) ?? plan.priceSyp;
-                          final updated = plan.copyWith(priceSyp: p);
-                          _manager.plans[idx] = updated;
-                          _manager.notifyListeners();
-                          try {
-                            await Supabase.instance.client
-                                .from('plans')
-                                .upsert(updated.toMap())
-                                .timeout(const Duration(seconds: 8));
-                          } catch (e) {
-                            debugPrint('Plan update notice: $e');
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: conditionCtrl,
-                        decoration: const InputDecoration(
-                            labelText: 'شرط وحالة الباقة',
-                            border: OutlineInputBorder()),
-                        onChanged: (val) async {
-                          final updated =
-                              plan.copyWith(statusConditionText: val);
-                          _manager.plans[idx] = updated;
-                          _manager.notifyListeners();
-                          try {
-                            await Supabase.instance.client
-                                .from('plans')
-                                .upsert(updated.toMap())
-                                .timeout(const Duration(seconds: 8));
-                          } catch (e) {
-                            debugPrint('Plan condition notice: $e');
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ],
-    );
-  }
-
-  /// غرفة العمليات للبانرات، الشريط الإخباري، وأرقام التواصل (مفصولة تماماً عن الدفع)
-  Widget _buildNewsAndBannersTab() {
-    final tickerIcons = [
-      Icons.campaign,
-      Icons.local_fire_department,
-      Icons.star,
-      Icons.notifications_active
-    ];
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text('إعدادات شريط الأخبار المتحرك:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Text('سرعة التمرير:'),
-            Expanded(
-              child: Slider(
-                value: _manager.tickerSpeed,
-                min: 0.5,
-                max: 4.0,
-                divisions: 7,
-                label: _manager.tickerSpeed.toStringAsFixed(1),
-                onChanged: (val) {
-                  setState(() => _manager.tickerSpeed = val);
-                  _manager.notifyListeners();
-                },
-              ),
-            ),
-          ],
-        ),
-        Wrap(
-          spacing: 8,
-          children: tickerIcons.map((ic) {
-            final isSel = _manager.tickerIcon == ic;
-            return ChoiceChip(
-              avatar: Icon(ic,
-                  size: 16, color: isSel ? Colors.white : Colors.black),
-              label: const Text(''),
-              selected: isSel,
-              selectedColor: _manager.primaryColor,
-              onSelected: (val) {
-                setState(() => _manager.tickerIcon = ic);
-                _manager.notifyListeners();
-              },
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-                child: TextField(
-                    controller: _newsInputController,
-                    decoration: const InputDecoration(
-                        hintText: 'نص الخبر الجديد...',
-                        border: OutlineInputBorder()))),
-            const SizedBox(width: 8),
-            IconButton(
-              style:
-                  IconButton.styleFrom(backgroundColor: _manager.buttonColor),
-              icon: const Icon(Icons.add, color: Colors.white),
-              onPressed: () async {
-                final txt = _newsInputController.text.trim();
-                if (txt.isNotEmpty) {
-                  setState(() {
-                    _manager.newsTicker.insert(0, txt);
-                    _newsInputController.clear();
-                  });
-                  _manager.notifyListeners();
-                  try {
-                    await Supabase.instance.client.from('news_ticker').insert(
-                        {'text': txt}).timeout(const Duration(seconds: 8));
-                  } catch (e) {
-                    debugPrint('News ticker insert note: $e');
-                  }
-                }
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        const Divider(),
-        const Text('غرفة عمليات البنرات والإعلانات اليدوية (إدارة حرة):',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 8),
-        TextField(
-            controller: _bannerTitleController,
-            decoration: const InputDecoration(
-                labelText: 'عنوان البنر التجاري',
-                border: OutlineInputBorder())),
-        const SizedBox(height: 8),
-        TextField(
-            controller: _bannerSubController,
-            decoration: const InputDecoration(
-                labelText: 'النص الفرعي / العرض',
-                border: OutlineInputBorder())),
-        const SizedBox(height: 8),
-        TextField(
-            controller: _bannerPhoneController,
-            decoration: const InputDecoration(
-                labelText: 'رقم هاتف الاتصال', border: OutlineInputBorder())),
-        const SizedBox(height: 8),
-        TextField(
-            controller: _bannerWhatsappController,
-            decoration: const InputDecoration(
-                labelText: 'رقم الواتساب المباشر',
-                border: OutlineInputBorder())),
-        const SizedBox(height: 8),
-        TextField(
-            controller: _bannerTelegramController,
-            decoration: const InputDecoration(
-                labelText: 'معرف التلغرام', border: OutlineInputBorder())),
-        const SizedBox(height: 8),
-        TextField(
-            controller: _bannerUrlController,
-            decoration: const InputDecoration(
-                labelText: 'رابط الموقع (اختياري)',
-                border: OutlineInputBorder())),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            ChoiceChip(
-              label: const Text('القسم العلوي'),
-              selected: _bannerPosition == 'top',
-              selectedColor: _manager.primaryColor,
-              onSelected: (val) => setState(() => _bannerPosition = 'top'),
-            ),
-            const SizedBox(width: 8),
-            ChoiceChip(
-              label: const Text('القسم السفلي'),
-              selected: _bannerPosition == 'bottom',
-              selectedColor: _manager.primaryColor,
-              onSelected: (val) => setState(() => _bannerPosition = 'bottom'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        InkWell(
-          onTap: _pickBannerImage,
-          child: Container(
-            height: 100,
-            decoration: BoxDecoration(
-              color: _manager.primaryColor.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _manager.primaryColor.withOpacity(0.4)),
-            ),
-            child: _selectedBannerBytes != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.memory(_selectedBannerBytes!,
-                        fit: BoxFit.cover, width: double.infinity))
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_photo_alternate,
-                          color: _manager.primaryColor, size: 30),
-                      const SizedBox(height: 4),
-                      const Text('اختر صورة البنر من المعرض 🖼️',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 11)),
-                    ],
-                  ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton.icon(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: _manager.buttonColor),
-            icon: const Icon(Icons.cloud_upload, color: Colors.white),
-            label: _isPublishingBanner
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Text('نشر وتثبيت البنر الآن 🚀',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-            onPressed: _isPublishingBanner ? null : _publishBannerToSupabase,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ..._manager.banners
-            .map((b) => Card(
-                  child: ListTile(
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.network(b.imageUrl,
-                          width: 45,
-                          height: 45,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const Icon(Icons.image)),
-                    ),
-                    title: Text(b.title,
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(
-                        'القسم: ${b.position == "top" ? "العلوي" : "السفلي"} | واتساب: ${b.whatsapp}'),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () async {
-                        setState(() => _manager.banners.remove(b));
-                        _manager.notifyListeners();
-                        try {
-                          await Supabase.instance.client
-                              .from('banners')
-                              .delete()
-                              .eq('id', b.id)
-                              .timeout(const Duration(seconds: 8));
-                        } catch (e) {
-                          debugPrint('Banner delete note: $e');
-                        }
-                      },
-                    ),
-                  ),
-                ))
-            .toList(),
-      ],
-    );
-  }
+  Widget _buildCategoriesManagerTab() =>
+      const Center(child: Text('إدارة وتعديل الأقسام والفئات متاحة'));
+  Widget _buildNewsTickerTab() =>
+      const Center(child: Text('إدارة نصوص شريط الأخبار العاجل'));
+  Widget _buildModeratorsTab() =>
+      const Center(child: Text('إدارة المشرفين والصلاحيات الفردية'));
+  Widget _buildReportsTab() =>
+      const Center(child: Text('إدارة بلاغات الإعلانات والمخالفات'));
+  Widget _buildGeneralSettingsTab() =>
+      const Center(child: Text('إعدادات الهوية ووضع الصيانة'));
 }
