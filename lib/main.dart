@@ -4784,10 +4784,7 @@ class _FullAddAdScreenState extends State<FullAddAdScreen> {
                         border: Border.all(color: _manager.primaryColor),
                       ),
                       child: Column(
-                        mainAxisAlignment: Center(
-                          child: Icon(Icons.add_photo_alternate,
-                              color: _manager.primaryColor, size: 28),
-                        ).alignment,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.add_photo_alternate,
                               color: _manager.primaryColor, size: 28),
@@ -5422,8 +5419,7 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color:
-                      Colors.black.withOpacity(0.6), // تم تصحيح Colors.black60
+                  color: Colors.black.withOpacity(0.6),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text('${_currentImageIndex + 1} / ${images.length}',
@@ -5619,7 +5615,7 @@ class _FullAdDetailsScreenState extends State<FullAdDetailsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, -2))
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))
         ],
       ),
       child: SafeArea(
