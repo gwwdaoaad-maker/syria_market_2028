@@ -2090,7 +2090,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       context,
                       MaterialPageRoute(
                           builder: (ctx) =>
-                              const FullAdminPanelScreen(initialTab: 1)),
+                              FullAdminPanelScreen(initialTab: 1)),
                     );
                   },
                 ),
@@ -3198,7 +3198,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (ctx) => const FullSubscriptionPlansScreen())),
+                  builder: (ctx) => FullSubscriptionPlansScreen())),
         ),
         if (_manager.isModerator) ...[
           const SizedBox(height: 10),
@@ -3212,10 +3212,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             subtitle: const Text(
                 'موافقة الإعلانات، المشرفين، البنرات، ألوان النصوص والاقتراحات'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-            onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (ctx) => const FullAdminPanelScreen())),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (ctx) => FullAdminPanelScreen())),
           ),
         ],
       ],
@@ -3317,8 +3315,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (ctx) =>
-                                const FullSubscriptionPlansScreen()));
+                            builder: (ctx) => FullSubscriptionPlansScreen()));
                   },
                 ),
                 if (_manager.isModerator)
@@ -3331,7 +3328,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (ctx) => const FullAdminPanelScreen()));
+                              builder: (ctx) => FullAdminPanelScreen()));
                     },
                   ),
               ],
