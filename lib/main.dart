@@ -1580,7 +1580,7 @@ class AppStateManager extends ChangeNotifier {
 }
 
 // ==============================================================================
-// 6. كلاس التطبيق الجذري المصحح تماماً (CardThemeData) (SyriaMarket2028App)
+// 6. كلاس التطبيق الجذري المصحح تماماً (CardTheme) (SyriaMarket2028App)
 // ==============================================================================
 class SyriaMarket2028App extends StatefulWidget {
   const SyriaMarket2028App({Key? key}) : super(key: key);
@@ -1636,7 +1636,7 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
           background: _manager.scaffoldBgColor,
         ),
         scaffoldBackgroundColor: _manager.scaffoldBgColor,
-        cardTheme: CardThemeData(
+        cardTheme: CardTheme(
           color: Colors.white,
           elevation: 1.5,
           shape:
@@ -1660,7 +1660,7 @@ class _SyriaMarket2028AppState extends State<SyriaMarket2028App> {
           background: const Color(0xFF0F172A),
         ),
         scaffoldBackgroundColor: const Color(0xFF0F172A),
-        cardTheme: CardThemeData(
+        cardTheme: CardTheme(
           color: const Color(0xFF1E293B),
           elevation: 2,
           shape:
@@ -2175,7 +2175,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   Timer? _tickerTimer;
   bool _isTickerPaused = false;
 
-  // 🖼️ سلايدر البنرات المتطور (يدعم حتى 12+ صورة مع تكرار دوري مستمر)
+  // 🖼️ سلايدر البنرات المتطور (يدعم حتى 12+ بطاقة مع تكرار دوري مستمر)
   final PageController _bannerCarouselController = PageController();
   int _currentBannerIndex = 0;
   Timer? _bannerAutoScrollTimer;
