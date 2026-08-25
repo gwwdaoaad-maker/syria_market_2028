@@ -11,9 +11,9 @@ import 'package:url_launcher/url_launcher.dart';
 // ==============================================================================
 // 1. الثوابت والإعدادات العامة لمنصة سوق سوريا الشامل 2028
 // ==============================================================================
-const String kSupabaseUrl = 'https://zbjjkigkxbpktpmpcdqc.supabase.co/rest/v1/';
+const String kSupabaseUrl = 'https://zbjjkigkxbpktpmpcdqc.supabase.co';
 const String kSupabaseAnonKey =
-    'sb_publishable_ZZBI_vTK7kslyf02g3Zo0Q_Sg4Qi'; // ضع المفتاح الكامل بعد نسخه من لوحة سوبابيز
+    'sb_publishable_ZZBI_vTK7ks1yfO2g3Zo0Q_Sg4QizEr'; // ضع المفتاح الكامل بعد نسخه من لوحة سوبابيز
 
 // معلومات التواصل مع الإدارة والمالك
 const String kAppOwnerEmail = 'aoaadabdo@gmail.com';
